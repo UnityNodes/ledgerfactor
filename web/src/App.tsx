@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { action, fetchViews } from './api';
+import { mountBackground } from './background';
 import { Contract, Recommendation, RoleView, ScoringResult } from './types';
 
 const money = (x: unknown): string =>
@@ -177,6 +178,11 @@ export const App = () => {
   const [underwrite, setUnderwrite] = useState<{ result: ScoringResult; memo: string } | null>(null);
   const invoiceCid = useRef<string | null>(null);
   const offerCid = useRef<string | null>(null);
+  const bgRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    if (!bgRef.current) return;
+    return mountBackground(bgRef.current);
+  }, []);
 
   const refresh = async () => {
     try { setViews(await fetchViews()); } catch (e) { setError(String(e)); }
@@ -187,6 +193,13 @@ export const App = () => {
     const o = views?.find((v) => (v.groups.FinancingOffer ?? []).length > 0)?.groups.FinancingOffer?.[0];
     return o ? Number(o.discountRate) : null;
   })();
+
+  useEffect(() => {
+    if (stepIdx >= 5 && margin != null) {
+      const el = bgRef.current as (HTMLCanvasElement & { __routeMargin?: () => void }) | null;
+      el?.__routeMargin?.();
+    }
+  }, [stepIdx, margin]);
 
   const pause = (ms = 1400) => new Promise((r) => setTimeout(r, ms));
 
@@ -241,6 +254,8 @@ export const App = () => {
   const showDisclosureBanner = stepIdx >= 5 && margin != null;
 
   return (
+    <>
+    <canvas className="bgfx" ref={bgRef} aria-hidden />
     <div className="app">
       <header className="masthead">
         <div className="brand-mark"><span className="live-dot" /> CANTON SANDBOX · LIVE</div>
@@ -329,5 +344,6 @@ export const App = () => {
         <button className="refresh" onClick={refresh} disabled={busy}>↻ re-query</button>
       </footer>
     </div>
+    </>
   );
 };
