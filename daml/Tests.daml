@@ -24,7 +24,7 @@ confirmedInvoice p amount description = do
     createCmd Invoice with
       supplier = p.supplier
       buyer = p.buyer
-      financier = None
+      financiers = []
       amount
       description
       status = Issued
@@ -33,7 +33,7 @@ confirmedInvoice p amount description = do
 listedInvoice : Parties -> Decimal -> Text -> Script (ContractId Invoice)
 listedInvoice p amount description = do
   cid <- confirmedInvoice p amount description
-  submit p.supplier do exerciseCmd cid ListForFinancing with newFinancier = p.financier
+  submit p.supplier do exerciseCmd cid ListForFinancing with newFinanciers = [p.financier]
 
 makeOffer : Parties -> ContractId Invoice -> Decimal -> Decimal -> Script (ContractId FinancingOffer)
 makeOffer p invoiceCid faceAmount discountRate = do
@@ -103,3 +103,60 @@ testHappyPathSettlement = do
 
   oldInvoice <- query @Invoice p.supplier
   assertMsg "the original receivable is consumed after financing" (null oldInvoice)
+
+bidOn : Parties -> Party -> ContractId Invoice -> Decimal -> Decimal -> Script (ContractId FinancingProposal)
+bidOn p bidder invoiceCid faceAmount discountRate =
+  submit bidder do
+    createCmd FinancingProposal with
+      financier = bidder
+      supplier = p.supplier
+      buyer = p.buyer
+      auditor = p.auditor
+      invoiceCid
+      faceAmount
+      discountRate
+
+testSealedBidAuction : Script ()
+testSealedBidAuction = do
+  p <- setupParties
+  apex <- allocateParty "Apex"
+  cobalt <- allocateParty "Cobalt"
+
+  iid <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financiers = []
+      amount = 100000.0
+      description = "Q3 pallets"
+      status = Issued
+  confirmed <- submit p.buyer do exerciseCmd iid Confirm
+  listed <- submit p.supplier do exerciseCmd confirmed ListForFinancing with newFinanciers = [p.financier, apex, cobalt]
+
+  b1 <- bidOn p p.financier listed 100000.0 0.019
+  b2 <- bidOn p apex listed 100000.0 0.024
+  _b3 <- bidOn p cobalt listed 100000.0 0.031
+
+  meridianBids <- query @FinancingProposal p.financier
+  assertMsg "each bidder sees only its own sealed bid (Meridian)" (length meridianBids == 1)
+  apexBids <- query @FinancingProposal apex
+  assertMsg "each bidder sees only its own sealed bid (Apex)" (length apexBids == 1)
+  cobaltBids <- query @FinancingProposal cobalt
+  assertMsg "each bidder sees only its own sealed bid (Cobalt)" (length cobaltBids == 1)
+
+  supplierBids <- query @FinancingProposal p.supplier
+  assertMsg "the supplier (auctioneer) sees all three sealed bids" (length supplierBids == 3)
+
+  buyerBids <- query @FinancingProposal p.buyer
+  assertMsg "the buyer sees no bids at all" (null buyerBids)
+
+  offer <- submit p.supplier do exerciseCmd b1 AcceptProposal
+  cash <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  _ <- submit p.financier do exerciseCmd offer AcceptFinancing with financierCashCid = cash
+
+  winnerReceivable <- query @FinancedReceivable p.auditor
+  assertMsg "the winning bid settles; auditor sees the financed receivable" (length winnerReceivable == 1)
+
+  cash2 <- submit apex do createCmd Cash with owner = apex, amount = 100000.0
+  offer2 <- submit p.supplier do exerciseCmd b2 AcceptProposal
+  submitMustFail apex do exerciseCmd offer2 AcceptFinancing with financierCashCid = cash2

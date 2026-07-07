@@ -72,6 +72,31 @@ const sessionParties = async (sid: string, allocate: boolean): Promise<Parties |
   return p;
 };
 
+interface Bidder { key: string; name: string; party: string; spread: number; appetite: string; }
+const BIDDERS: Omit<Bidder, 'party'>[] = [
+  { key: 'meridian', name: 'Meridian Capital', spread: 0.0, appetite: 'aggressive' },
+  { key: 'apex', name: 'Apex Credit', spread: 0.006, appetite: 'balanced' },
+  { key: 'cobalt', name: 'Cobalt Partners', spread: 0.013, appetite: 'conservative' },
+];
+const auctions = new Map<string, Bidder[]>();
+
+const sessionBidders = async (sid: string, allocate: boolean): Promise<Bidder[] | null> => {
+  const key = sanitize(sid);
+  const found = auctions.get(key);
+  if (found) return found;
+  if (!allocate) return null;
+  const list: Bidder[] = [];
+  for (const b of BIDDERS) {
+    const party = await getOrAllocate('Bid' + b.key.slice(0, 3) + key);
+    list.push({ ...b, party });
+  }
+  auctions.set(key, list);
+  return list;
+};
+
+const bidderNameOf = (bidders: Bidder[] | null, partyId: string): string =>
+  bidders?.find((b) => b.party === partyId)?.name ?? 'Financier';
+
 const sidOf = (req: express.Request): string => {
   const h = req.header('x-lf-session');
   const q = typeof req.query.s === 'string' ? req.query.s : undefined;
@@ -82,11 +107,11 @@ const sidOf = (req: express.Request): string => {
 const seedScene = async (p: Parties): Promise<void> => {
   const buyerName = DISPLAY.buyer;
   const a = await ledger.create(p.supplier, 'Invoice', {
-    supplier: p.supplier, buyer: p.buyer, financier: null,
+    supplier: p.supplier, buyer: p.buyer, financiers: [],
     amount: '100000', description: 'Q3 pallet delivery', status: 'Issued',
   });
   const aConfirmed = await ledger.exercise(p.buyer, 'Invoice', a.contractId, 'Confirm', {});
-  const aListed = await ledger.exercise(p.supplier, 'Invoice', aConfirmed, 'ListForFinancing', { newFinancier: p.financier });
+  const aListed = await ledger.exercise(p.supplier, 'Invoice', aConfirmed, 'ListForFinancing', { newFinanciers: [p.financier] });
   const scoreA = scoreFor(100000, DEFAULT_TENOR, buyerName, 0);
   const propA = await ledger.create(p.financier, 'FinancingProposal', {
     financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
@@ -166,7 +191,7 @@ app.post('/api/actions/invoice', async (req, res) => {
     if (!p) return res.status(503).json({ error: 'not ready' });
     const { amount, description } = req.body ?? {};
     const inv = await ledger.create(p.supplier, 'Invoice', {
-      supplier: p.supplier, buyer: p.buyer, financier: null,
+      supplier: p.supplier, buyer: p.buyer, financiers: [],
       amount: String(amount ?? 100000), description: description || 'New receivable', status: 'Issued',
     });
     res.json({ invoiceCid: inv.contractId });
@@ -186,7 +211,7 @@ app.post('/api/actions/list', async (req, res) => {
   try {
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
-    const cid = await ledger.exercise(p.supplier, 'Invoice', req.body.invoiceCid, 'ListForFinancing', { newFinancier: p.financier });
+    const cid = await ledger.exercise(p.supplier, 'Invoice', req.body.invoiceCid, 'ListForFinancing', { newFinanciers: [p.financier] });
     res.json({ invoiceCid: cid });
   } catch (e) { fail(res, e); }
 });
@@ -250,6 +275,127 @@ app.post('/api/actions/sample', async (req, res) => {
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
     await seedScene(p);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/auction/open', async (req, res) => {
+  try {
+    const sid = sidOf(req);
+    const p = await sessionParties(sid, true);
+    const bidders = await sessionBidders(sid, true);
+    if (!p || !bidders) return res.status(503).json({ error: 'not ready' });
+    const { amount, description } = req.body ?? {};
+    const inv = await ledger.create(p.supplier, 'Invoice', {
+      supplier: p.supplier, buyer: p.buyer, financiers: [],
+      amount: String(amount ?? 100000), description: description || 'Auction receivable', status: 'Issued',
+    });
+    const confirmed = await ledger.exercise(p.buyer, 'Invoice', inv.contractId, 'Confirm', {});
+    const listed = await ledger.exercise(p.supplier, 'Invoice', confirmed, 'ListForFinancing', { newFinanciers: bidders.map((b) => b.party) });
+    res.json({ invoiceCid: listed, amount: num(amount ?? 100000), bidders: bidders.map((b) => ({ key: b.key, name: b.name, appetite: b.appetite })) });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/auction/bid', async (req, res) => {
+  try {
+    const sid = sidOf(req);
+    const p = await sessionParties(sid, true);
+    const bidders = await sessionBidders(sid, true);
+    if (!p || !bidders) return res.status(503).json({ error: 'not ready' });
+    const { invoiceCid, bidderKey, amount } = req.body ?? {};
+    const b = bidders.find((x) => x.key === bidderKey);
+    if (!b) return res.status(404).json({ error: 'unknown bidder' });
+    const score = scoreFor(Number(amount), DEFAULT_TENOR, DISPLAY.buyer, 0);
+    const rate = Math.round((score.recommendedDiscountRate + b.spread) * 10000) / 10000;
+    await ledger.create(b.party, 'FinancingProposal', {
+      financier: b.party, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
+      invoiceCid, faceAmount: String(amount), discountRate: String(rate),
+    });
+    res.json({ bidderKey, name: b.name, rate, score: score.creditScore, band: score.riskBand });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/auction/close', async (req, res) => {
+  try {
+    const sid = sidOf(req);
+    const p = await sessionParties(sid, true);
+    const bidders = await sessionBidders(sid, true);
+    if (!p || !bidders) return res.status(503).json({ error: 'not ready' });
+    const { amount } = req.body ?? {};
+    const props = await ledger.query(p.supplier, ['FinancingProposal']);
+    if (!props.length) return res.status(400).json({ error: 'no bids to close' });
+    const withRate = props
+      .map((c) => ({ cid: c.contractId, party: String((c.payload as any).financier), rate: Number((c.payload as any).discountRate) }))
+      .sort((a, b) => a.rate - b.rate);
+    const winner = withRate[0];
+    const offerCid = await ledger.exercise(p.supplier, 'FinancingProposal', winner.cid, 'AcceptProposal', {});
+    const cash = await ledger.create(winner.party, 'Cash', { owner: winner.party, amount: String(amount ?? 100000) });
+    await ledger.exercise(winner.party, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
+    for (const w of withRate.slice(1)) {
+      try { await ledger.exercise(w.party, 'FinancingProposal', w.cid, 'Archive', {}); } catch { /* ignore */ }
+    }
+    res.json({
+      winner: { name: bidderNameOf(bidders, winner.party), rate: winner.rate },
+      bids: withRate.map((w) => ({ name: bidderNameOf(bidders, w.party), rate: w.rate })),
+    });
+  } catch (e) { fail(res, e); }
+});
+
+app.get('/api/auction/view/:viewer', async (req, res) => {
+  const sid = sidOf(req);
+  const viewer = req.params.viewer;
+  const p = await sessionParties(sid, false);
+  const bidders = await sessionBidders(sid, false);
+  if (!p) return res.json({ viewer, displayName: viewer, subtitle: '', party: '-', invoice: null, visibleBids: [], offer: null, receivable: null, totalContracts: 0 });
+  let party: string | null = null;
+  let displayName = viewer;
+  let subtitle = '';
+  if (viewer === 'supplier') { party = p.supplier; displayName = DISPLAY.supplier; subtitle = 'auctioneer - sees every bid'; }
+  else if (viewer === 'buyer') { party = p.buyer; displayName = DISPLAY.buyer; subtitle = 'confirms the payable'; }
+  else if (viewer === 'auditor') { party = p.auditor; displayName = DISPLAY.auditor; subtitle = 'audit trail only'; }
+  else { const b = bidders?.find((x) => x.key === viewer); if (b) { party = b.party; displayName = b.name; subtitle = b.appetite + ' bidder'; } }
+  if (!party) return res.status(404).json({ error: 'unknown viewer' });
+  try {
+    const contracts = await ledger.query(party, ['Invoice', 'FinancingProposal', 'FinancingOffer', 'FinancedReceivable', 'Cash']);
+    const groups: Record<string, any[]> = {};
+    for (const c of contracts) { const n = shortName(c.templateId); (groups[n] ??= []).push({ contractId: c.contractId, ...c.payload }); }
+    const invoice = (groups.Invoice ?? [])[0] ?? null;
+    const visibleBids = (groups.FinancingProposal ?? [])
+      .map((pr) => ({ bidder: bidderNameOf(bidders, String(pr.financier)), rate: Number(pr.discountRate), faceAmount: Number(pr.faceAmount) }))
+      .sort((a, b) => a.rate - b.rate);
+    const offC = (groups.FinancingOffer ?? [])[0];
+    const recC = (groups.FinancedReceivable ?? [])[0];
+    res.json({
+      viewer, displayName, subtitle, party,
+      invoice: invoice ? { amount: Number(invoice.amount), description: invoice.description, status: invoice.status } : null,
+      visibleBids,
+      offer: offC ? { rate: Number(offC.discountRate), bidder: bidderNameOf(bidders, String(offC.financier)) } : null,
+      receivable: recC ? { faceAmount: Number(recC.faceAmount), description: recC.description } : null,
+      totalContracts: contracts.length,
+    });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/auction/reset', async (req, res) => {
+  try {
+    const sid = sidOf(req);
+    const p = await sessionParties(sid, false);
+    const bidders = await sessionBidders(sid, false);
+    if (!p) return res.json({ ok: true });
+    const archiveAs = async (party: string, entity: string) => {
+      for (const c of await ledger.query(party, [entity])) {
+        try { await ledger.exercise(party, entity, c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+    };
+    await archiveAs(p.supplier, 'Invoice');
+    for (const b of bidders ?? []) {
+      await archiveAs(b.party, 'FinancingProposal');
+      for (const c of await ledger.query(b.party, ['FinancingOffer'])) {
+        try { await ledger.exerciseMulti([b.party, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+      await archiveAs(b.party, 'FinancedReceivable');
+      await archiveAs(b.party, 'Cash');
+    }
     res.json({ ok: true });
   } catch (e) { fail(res, e); }
 });

@@ -1,7 +1,5 @@
 module LedgerFactor where
 
-import DA.Optional (optionalToList)
-
 data InvoiceStatus
   = Issued
   | Confirmed
@@ -11,13 +9,13 @@ template Invoice
   with
     supplier : Party
     buyer : Party
-    financier : Optional Party
+    financiers : [Party]
     amount : Decimal
     description : Text
     status : InvoiceStatus
   where
     signatory supplier
-    observer buyer :: optionalToList financier
+    observer buyer :: financiers
     ensure amount > 0.0
 
     choice Confirm : ContractId Invoice
@@ -26,9 +24,9 @@ template Invoice
 
     choice ListForFinancing : ContractId Invoice
       with
-        newFinancier : Party
+        newFinanciers : [Party]
       controller supplier
-      do create this with financier = Some newFinancier
+      do create this with financiers = newFinanciers
 
 template Cash
   with
