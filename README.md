@@ -3,70 +3,54 @@
 Confidential invoice financing on Canton. A supplier discounts a buyer-approved
 invoice to a financier, the financier's margin is hidden from the buyer **by the
 protocol**, and the ledger **structurally** guarantees one invoice can never be
-financed twice.
+financed twice. An AI agent underwrites the receivable over only the data the
+financier is entitled to see.
 
 Built for HackCanton S2 - Track 2 (Financial Applications) + Track 1 (RWA &
-Business Workflows).
+Business Workflows). Business brief: [docs/business-brief.md](docs/business-brief.md).
+
+![Four role views of the same invoice](docs/demo-four-screens.png)
 
 ## Why this runs only on Canton
 
 Three guarantees are enforced by the ledger, not by the UI:
 
-1. **Selective disclosure (margin privacy).** The financier's discount rate lives
-   on `FinancingOffer` / `FinancingProposal`, whose stakeholders are only the
-   financier and the supplier. The buyer is never a stakeholder, so the margin
-   never reaches the buyer's participant node. Ported to a public chain the
-   payable and its pricing leak.
+1. **Selective disclosure (margin privacy).** The discount rate lives on
+   `FinancingProposal` / `FinancingOffer`, whose only stakeholders are the
+   financier and supplier. The buyer is never a stakeholder, so the margin never
+   reaches the buyer's participant node.
 2. **Single-exercise uniqueness (anti-double-pledge).** The `Invoice` is one
-   authoritative contract. `AcceptFinancing` is a *consuming* choice that archives
-   it, so a second financing attempt on the same invoice is rejected at the
-   ledger - not policed by an off-chain registry.
-3. **Atomic DvP.** Assigning the receivable to the financier and paying the
-   supplier the discounted cash settle in a single transaction. Either both legs
-   happen or neither does.
+   authoritative contract; `AcceptFinancing` is a *consuming* choice, so a second
+   financing attempt on the same invoice is rejected at the ledger.
+3. **Atomic DvP.** Assigning the receivable and paying the supplier the discounted
+   cash settle in a single transaction.
 
-## The model (`daml/LedgerFactor.daml`)
+## Architecture
 
-| Template | Signatory | Observer | Carries the margin? |
-|---|---|---|---|
-| `Invoice` | supplier | buyer, (listed financier) | no |
-| `FinancingProposal` | financier | supplier | **yes** |
-| `FinancingOffer` | financier, supplier | - | **yes** |
-| `FinancedReceivable` | financier | buyer, auditor | no |
-| `Cash` (mock) | owner | - | no |
+```
+ web/ (React + Vite)  ──/api──▶  server/ (Node + Express)  ──JSON API──▶  Canton sandbox
+ four role screens               party-scoped views                        (Daml contracts)
+                                 + AI credit-scoring agent
+```
 
-End-to-end flow:
-
-1. **Supplier** issues an `Invoice` (buyer is an observer).
-2. **Buyer** exercises `Confirm` to approve the payable.
-3. **Supplier** exercises `ListForFinancing` to disclose the invoice to a chosen
-   financier. This is what lets the financier's credit-scoring agent read the
-   invoice at all - disclosure is the gate, enforced by Canton.
-4. **Financier** creates a `FinancingProposal` with the AI-recommended discount
-   rate. Only the supplier can see it; the buyer cannot.
-5. **Supplier** exercises `AcceptProposal`, producing a co-signed `FinancingOffer`
-   whose margin is scoped to financier + supplier only.
-6. **Financier** exercises `AcceptFinancing`. In one atomic transaction this
-   consumes the invoice, pays the supplier the discounted advance in mock `Cash`,
-   returns the financier's change, and mints a `FinancedReceivable` that the buyer
-   and auditor observe at **face value only** - never the margin.
+- **`daml/`** - the model and the Daml Script proofs. This is the core.
+- **`server/`** - Node gateway. Holds per-party JWTs, exposes party-scoped
+  `/api/view/:role`, and runs the credit-scoring agent (`server/src/scoring/`).
+- **`web/`** - the "same invoice, four screens" dashboard. Each column is a live
+  query to the ledger *as that party*; the margin card appears only where the
+  ledger discloses it.
 
 ## The two money-shots (proven, not asserted)
 
-Both are Daml Script tests in `daml/Tests.daml`, checked at the ledger by querying
-as each party:
+Daml Script tests in [daml/Tests.daml](daml/Tests.daml), each querying the ledger
+as its own party:
 
-- `testSelectiveDisclosure` - the buyer queries the ledger for `FinancingOffer`
-  and `FinancingProposal` and gets **nothing**, while financier and supplier both
-  see the offer with its margin. The buyer still sees the invoice itself. Privacy
-  is enforced by Canton, not by a React filter.
-- `testNoDoubleFinancing` - two competing offers are raised on the same invoice.
-  The first `AcceptFinancing` succeeds; the second is **rejected by the ledger**
-  because the invoice contract is already consumed.
-
-`testHappyPathSettlement` additionally proves the atomic DvP: the supplier is paid
-97,000 on a 100,000 invoice at a 3% discount, the original receivable is gone, and
-the auditor sees the financed receivable at face value with no margin.
+- `testSelectiveDisclosure` - the buyer queries for `FinancingOffer` /
+  `FinancingProposal` and gets **nothing**; financier and supplier see the margin.
+- `testNoDoubleFinancing` - two offers on one invoice; the first `AcceptFinancing`
+  consumes it, the second is **rejected by the ledger**.
+- `testHappyPathSettlement` - atomic DvP: supplier paid 97,000 on a 100,000 invoice
+  at 3%, original receivable gone, auditor sees face value only.
 
 ```
 daml/Tests.daml:testSelectiveDisclosure: ok, 2 active contracts, 4 transactions.
@@ -74,30 +58,50 @@ daml/Tests.daml:testNoDoubleFinancing:   ok, 5 active contracts, 11 transactions
 daml/Tests.daml:testHappyPathSettlement: ok, 3 active contracts, 7 transactions.
 ```
 
-## Run it
-
-Prerequisites: Daml SDK 2.10.4 and a JDK (17 works).
+The same disclosure is verifiable live: query the running gateway as each party and
+only supplier + financier see the discount rate.
 
 ```bash
-daml build   # compiles the DAR
-daml test    # runs the money-shot scripts against the in-memory ledger
+for r in supplier buyer financier auditor; do curl -s localhost:8080/api/view/$r; done
 ```
 
-## Notes and honest scope
+## The AI credit-scoring agent
 
-- **Mock cash.** `Cash` is a bearer token signed by its owner - a stand-in for a
-  token-standard holding so the DvP is demonstrable this weekend. The atomicity of
-  the swap is real; the cash model is not production-grade. Real token-standard DvP
-  is a stretch goal.
-- **Notified factoring.** `ListForFinancing` reveals the financier's identity to
-  the buyer (the buyer observes the invoice). The commercially sensitive figure -
-  the pricing/margin - stays hidden. Undisclosed factoring, which hides the
-  financier from the buyer too, would use Canton explicit disclosure and is a
-  stretch.
+`server/src/scoring/` is a deterministic underwriting engine - not a chatbot. It
+scores buyer payment reliability, portfolio concentration, and dilution risk into a
+0-100 credit score and risk band, and recommends a discount rate. The financier
+reviews and signs the resulting on-ledger offer. An LLM turns the structured
+rationale into a short memo; with no API key it falls back to a deterministic memo,
+so the demo never depends on a network call. 5/5 unit tests: `npm --prefix server test`.
+
+## Run it
+
+Prerequisites: Daml SDK 2.10.4 and a JDK (17 works), Node 20+.
+
+```bash
+# 1. prove the core (no services needed)
+daml test
+
+# 2. run the whole stack (sandbox + JSON API + server + web)
+./scripts/dev.sh
+# → UI on http://localhost:5173
+```
+
+## Honest scope
+
+- **Mock cash.** `Cash` is an owner-signed bearer token standing in for a
+  token-standard holding. The DvP *atomicity* is real; the cash model is not
+  production-grade. Real token-standard DvP is a stretch goal.
+- **Notified factoring.** Listing an invoice reveals the financier's identity to
+  the buyer; the sensitive figure - the pricing - stays hidden. Undisclosed
+  factoring (hiding the financier too) would use Canton explicit disclosure.
 
 ## Status
 
 - [x] Daml model + both money-shots proven by Daml Script
-- [ ] Ledger JSON API + 3-role frontend (supplier / buyer / financier / auditor)
-- [ ] AI credit-scoring agent (rules engine + LLM explanation)
-- [ ] Business brief + pilot plan
+- [x] AI credit-scoring agent (rules engine + optional LLM memo), unit-tested
+- [x] Live JSON API gateway + party-scoped role views
+- [x] Four-role frontend (supplier / buyer / financier / auditor)
+- [x] Business brief + pilot plan
+- [ ] Real token-standard DvP settlement (stretch)
+- [ ] Runtime compliance citation via CCPEDIA MCP in the auditor view (stretch)
