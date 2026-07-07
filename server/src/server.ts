@@ -30,9 +30,9 @@ const profileFor = (buyer: string): BuyerCreditProfile => ({
 });
 
 interface Parties { supplier: string; buyer: string; financier: string; auditor: string; }
-let parties: Parties | null = null;
-let seeded = false;
+let ready = false;
 let bootError: string | null = null;
+const sessions = new Map<string, Parties>();
 
 const shortName = (tid: string): string => tid.split(':').pop() ?? tid;
 const num = (x: unknown): number => Number(x ?? 0);
@@ -44,9 +44,43 @@ const scoreFor = (amount: number, tenorDays: number, buyerName: string, priorBoo
     { totalReceivables: EXISTING_BOOK + priorBook, buyerReceivables: priorBook },
   );
 
+const getOrAllocate = async (hint: string): Promise<string> => {
+  try {
+    const existing = (await ledger.listParties()).find((p) => p.identifier.startsWith(hint + '::'));
+    if (existing) return existing.identifier;
+  } catch {
+    /* fall through */
+  }
+  return ledger.allocateParty(hint);
+};
+
+const sanitize = (s: string): string => (s.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'x');
+
+const sessionParties = async (sid: string, allocate: boolean): Promise<Parties | null> => {
+  const key = sanitize(sid);
+  const found = sessions.get(key);
+  if (found) return found;
+  if (!allocate) return null;
+  const p: Parties = {
+    supplier: await getOrAllocate('Sup' + key),
+    buyer: await getOrAllocate('Buy' + key),
+    financier: await getOrAllocate('Fin' + key),
+    auditor: await getOrAllocate('Aud' + key),
+  };
+  sessions.set(key, p);
+  console.log(`[session] allocated parties for ${key} (total sessions: ${sessions.size})`);
+  return p;
+};
+
+const sidOf = (req: express.Request): string => {
+  const h = req.header('x-lf-session');
+  const q = typeof req.query.s === 'string' ? req.query.s : undefined;
+  const b = req.body && typeof req.body.session === 'string' ? req.body.session : undefined;
+  return h || q || b || 'default';
+};
+
 const seedScene = async (p: Parties): Promise<void> => {
   const buyerName = DISPLAY.buyer;
-
   const a = await ledger.create(p.supplier, 'Invoice', {
     supplier: p.supplier, buyer: p.buyer, financier: null,
     amount: '100000', description: 'Q3 pallet delivery', status: 'Issued',
@@ -59,31 +93,6 @@ const seedScene = async (p: Parties): Promise<void> => {
     invoiceCid: aListed, faceAmount: '100000', discountRate: String(scoreA.recommendedDiscountRate),
   });
   await ledger.exercise(p.supplier, 'FinancingProposal', propA.contractId, 'AcceptProposal', {});
-
-  const b = await ledger.create(p.supplier, 'Invoice', {
-    supplier: p.supplier, buyer: p.buyer, financier: null,
-    amount: '60000', description: 'Packaging materials', status: 'Issued',
-  });
-  const bConfirmed = await ledger.exercise(p.buyer, 'Invoice', b.contractId, 'Confirm', {});
-  const bListed = await ledger.exercise(p.supplier, 'Invoice', bConfirmed, 'ListForFinancing', { newFinancier: p.financier });
-  const scoreB = scoreFor(60000, 45, buyerName, 100000);
-  const propB = await ledger.create(p.financier, 'FinancingProposal', {
-    financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
-    invoiceCid: bListed, faceAmount: '60000', discountRate: String(scoreB.recommendedDiscountRate),
-  });
-  const offerB = await ledger.exercise(p.supplier, 'FinancingProposal', propB.contractId, 'AcceptProposal', {});
-  const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: '60000' });
-  await ledger.exercise(p.financier, 'FinancingOffer', offerB, 'AcceptFinancing', { financierCashCid: cash.contractId });
-};
-
-const getOrAllocate = async (hint: string): Promise<string> => {
-  try {
-    const existing = (await ledger.listParties()).find((p) => p.identifier.startsWith(hint + '::'));
-    if (existing) return existing.identifier;
-  } catch {
-    /* fall through to allocation */
-  }
-  return ledger.allocateParty(hint);
 };
 
 const bootstrap = async (): Promise<void> => {
@@ -92,47 +101,41 @@ const bootstrap = async (): Promise<void> => {
     await new Promise((r) => setTimeout(r, 2000));
   }
   if (!(await ledger.healthy())) { bootError = 'JSON API never became ready'; return; }
-  try {
-    parties = {
-      supplier: await getOrAllocate('Supplier'),
-      buyer: await getOrAllocate('Buyer'),
-      financier: await getOrAllocate('Financier'),
-      auditor: await getOrAllocate('Auditor'),
-    };
-    seeded = true;
-    console.log('[bootstrap] parties ready', parties);
-  } catch (e) {
-    bootError = String(e);
-    console.error('[bootstrap] failed:', e);
-  }
+  ready = true;
+  console.log('[bootstrap] ledger ready - sessions allocate parties on demand');
 };
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+const fail = (res: express.Response, e: unknown) => res.status(500).json({ error: String(e) });
+
 app.get('/api/health', (_req, res) => {
-  res.json({ seeded, bootError, parties: parties ? Object.keys(parties) : [] });
+  res.json({ ready, bootError, sessions: sessions.size });
 });
 
-app.get('/api/parties', (_req, res) => {
-  if (!parties) return res.status(503).json({ error: bootError ?? 'not ready' });
-  res.json(ROLES.map((role) => ({ role, displayName: DISPLAY[role], party: parties![role] })));
+app.get('/api/parties', async (req, res) => {
+  const p = await sessionParties(sidOf(req), false);
+  res.json(ROLES.map((role) => ({ role, displayName: DISPLAY[role], party: p ? p[role] : null })));
 });
 
 app.get('/api/view/:role', async (req, res) => {
   const role = req.params.role as Role;
-  if (!parties) return res.status(503).json({ error: bootError ?? 'not ready' });
   if (!ROLES.includes(role)) return res.status(404).json({ error: 'unknown role' });
+  if (!ready) return res.status(503).json({ error: bootError ?? 'not ready' });
+  const p = await sessionParties(sidOf(req), false);
+  if (!p) {
+    return res.json({ role, displayName: DISPLAY[role], party: '-', groups: {}, ...(role === 'financier' ? { recommendations: [] } : {}) });
+  }
   try {
-    const contracts = await ledger.query(parties[role], ENTITIES);
+    const contracts = await ledger.query(p[role], ENTITIES);
     const groups: Record<string, any[]> = {};
     for (const c of contracts) {
       const name = shortName(c.templateId);
       (groups[name] ??= []).push({ contractId: c.contractId, ...c.payload });
     }
-    const body: any = { role, displayName: DISPLAY[role], party: parties[role], groups };
-
+    const body: any = { role, displayName: DISPLAY[role], party: p[role], groups };
     if (role === 'financier') {
       let priorBook = 0;
       body.recommendations = (groups.Invoice ?? [])
@@ -145,9 +148,7 @@ app.get('/api/view/:role', async (req, res) => {
         });
     }
     res.json(body);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
+  } catch (e) { fail(res, e); }
 });
 
 app.post('/api/score', async (req, res) => {
@@ -156,19 +157,13 @@ app.post('/api/score', async (req, res) => {
     return res.status(400).json({ error: 'amount and tenorDays (numbers) required' });
   }
   const result = scoreFor(amount, tenorDays, buyer ?? DISPLAY.buyer, num(priorBook));
-  const memo = await explainScore(result);
-  res.json({ result, memo });
+  res.json({ result, memo: await explainScore(result) });
 });
-
-const need = (): Parties => {
-  if (!parties) throw new Error('parties not ready');
-  return parties;
-};
-const fail = (res: express.Response, e: unknown) => res.status(500).json({ error: String(e) });
 
 app.post('/api/actions/invoice', async (req, res) => {
   try {
-    const p = need();
+    const p = await sessionParties(sidOf(req), true);
+    if (!p) return res.status(503).json({ error: 'not ready' });
     const { amount, description } = req.body ?? {};
     const inv = await ledger.create(p.supplier, 'Invoice', {
       supplier: p.supplier, buyer: p.buyer, financier: null,
@@ -180,7 +175,8 @@ app.post('/api/actions/invoice', async (req, res) => {
 
 app.post('/api/actions/confirm', async (req, res) => {
   try {
-    const p = need();
+    const p = await sessionParties(sidOf(req), true);
+    if (!p) return res.status(503).json({ error: 'not ready' });
     const cid = await ledger.exercise(p.buyer, 'Invoice', req.body.invoiceCid, 'Confirm', {});
     res.json({ invoiceCid: cid });
   } catch (e) { fail(res, e); }
@@ -188,7 +184,8 @@ app.post('/api/actions/confirm', async (req, res) => {
 
 app.post('/api/actions/list', async (req, res) => {
   try {
-    const p = need();
+    const p = await sessionParties(sidOf(req), true);
+    if (!p) return res.status(503).json({ error: 'not ready' });
     const cid = await ledger.exercise(p.supplier, 'Invoice', req.body.invoiceCid, 'ListForFinancing', { newFinancier: p.financier });
     res.json({ invoiceCid: cid });
   } catch (e) { fail(res, e); }
@@ -198,14 +195,14 @@ app.post('/api/actions/underwrite', async (req, res) => {
   try {
     const { amount, tenorDays } = req.body ?? {};
     const result = scoreFor(Number(amount), Number(tenorDays ?? DEFAULT_TENOR), DISPLAY.buyer, 0);
-    const memo = await explainScore(result);
-    res.json({ result, memo });
+    res.json({ result, memo: await explainScore(result) });
   } catch (e) { fail(res, e); }
 });
 
 app.post('/api/actions/offer', async (req, res) => {
   try {
-    const p = need();
+    const p = await sessionParties(sidOf(req), true);
+    if (!p) return res.status(503).json({ error: 'not ready' });
     const { invoiceCid, faceAmount, discountRate } = req.body ?? {};
     const prop = await ledger.create(p.financier, 'FinancingProposal', {
       financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
@@ -218,7 +215,8 @@ app.post('/api/actions/offer', async (req, res) => {
 
 app.post('/api/actions/finance', async (req, res) => {
   try {
-    const p = need();
+    const p = await sessionParties(sidOf(req), true);
+    if (!p) return res.status(503).json({ error: 'not ready' });
     const { offerCid, faceAmount } = req.body ?? {};
     const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: String(faceAmount) });
     const result = await ledger.exercise(p.financier, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
@@ -226,22 +224,20 @@ app.post('/api/actions/finance', async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
-app.post('/api/actions/reset', async (_req, res) => {
+app.post('/api/actions/reset', async (req, res) => {
   try {
-    const p = need();
+    const p = await sessionParties(sidOf(req), false);
+    if (!p) return res.json({ ok: true });
     const archive = async (party: string, entity: string) => {
       for (const c of await ledger.query(party, [entity])) {
         try { await ledger.exercise(party, entity, c.contractId, 'Archive', {}); } catch { /* ignore */ }
       }
     };
-    const archiveOffers = async () => {
-      for (const c of await ledger.query(p.financier, ['FinancingOffer'])) {
-        try { await ledger.exerciseMulti([p.financier, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
-      }
-    };
     await archive(p.supplier, 'Invoice');
     await archive(p.financier, 'FinancingProposal');
-    await archiveOffers();
+    for (const c of await ledger.query(p.financier, ['FinancingOffer'])) {
+      try { await ledger.exerciseMulti([p.financier, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+    }
     await archive(p.financier, 'FinancedReceivable');
     await archive(p.supplier, 'Cash');
     await archive(p.financier, 'Cash');
@@ -249,8 +245,13 @@ app.post('/api/actions/reset', async (_req, res) => {
   } catch (e) { fail(res, e); }
 });
 
-app.post('/api/actions/sample', async (_req, res) => {
-  try { await seedScene(need()); res.json({ ok: true }); } catch (e) { fail(res, e); }
+app.post('/api/actions/sample', async (req, res) => {
+  try {
+    const p = await sessionParties(sidOf(req), true);
+    if (!p) return res.status(503).json({ error: 'not ready' });
+    await seedScene(p);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
 });
 
 app.listen(PORT, () => {

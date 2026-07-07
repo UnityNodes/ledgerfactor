@@ -215,10 +215,25 @@ export const App = () => {
     } else if (key === 'finance') { await action('finance', { offerCid: offerCid.current, faceAmount: amount }); }
   };
 
+  const handleErr = async (e: unknown) => {
+    const msg = String(e);
+    if (/CONTRACT_NOT_FOUND|404|not ready|not found/i.test(msg)) {
+      invoiceCid.current = null;
+      offerCid.current = null;
+      setUnderwrite(null);
+      setStepIdx(0);
+      setError('The demo ledger changed (it restarted, or your session reset). Press the first step or ▶▶ Auto-play to run a fresh deal.');
+    } else {
+      setError('Action failed - ' + msg.replace(/^Error:\s*/, '').slice(0, 180));
+    }
+    await refresh();
+  };
+
   const next = async () => {
     setBusy(true);
+    setError(null);
     try { await runStep(STEPS[stepIdx].key); setStepIdx((i) => i + 1); await refresh(); }
-    catch (e) { setError(String(e)); }
+    catch (e) { await handleErr(e); }
     finally { setBusy(false); }
   };
 
@@ -234,17 +249,19 @@ export const App = () => {
 
   const autoplay = async () => {
     setBusy(true);
+    setError(null);
     try {
       await action('reset');
       invoiceCid.current = null; offerCid.current = null; setUnderwrite(null); setStepIdx(0);
       await refresh();
+      await pause(900);
       for (let i = 0; i < STEPS.length; i++) {
         await runStep(STEPS[i].key);
         setStepIdx(i + 1);
         await refresh();
-        await pause(STEPS[i].key === 'offer' ? 2200 : 1400);
+        await pause(STEPS[i].key === 'offer' ? 4800 : 3000);
       }
-    } catch (e) { setError(String(e)); }
+    } catch (e) { await handleErr(e); }
     finally { setBusy(false); }
   };
 
