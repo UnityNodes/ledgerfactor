@@ -127,7 +127,7 @@ const bootstrap = async (): Promise<void> => {
   }
   if (!(await ledger.healthy())) { bootError = 'JSON API never became ready'; return; }
   ready = true;
-  console.log('[bootstrap] ledger ready - sessions allocate parties on demand');
+  console.log('[bootstrap] ledger ready · sessions allocate parties on demand');
 };
 
 const app = express();
@@ -151,7 +151,7 @@ app.get('/api/view/:role', async (req, res) => {
   if (!ready) return res.status(503).json({ error: bootError ?? 'not ready' });
   const p = await sessionParties(sidOf(req), false);
   if (!p) {
-    return res.json({ role, displayName: DISPLAY[role], party: '-', groups: {}, ...(role === 'financier' ? { recommendations: [] } : {}) });
+    return res.json({ role, displayName: DISPLAY[role], party: '·', groups: {}, ...(role === 'financier' ? { recommendations: [] } : {}) });
   }
   try {
     const contracts = await ledger.query(p[role], ENTITIES);
@@ -346,11 +346,11 @@ app.get('/api/auction/view/:viewer', async (req, res) => {
   const viewer = req.params.viewer;
   const p = await sessionParties(sid, false);
   const bidders = await sessionBidders(sid, false);
-  if (!p) return res.json({ viewer, displayName: viewer, subtitle: '', party: '-', invoice: null, visibleBids: [], offer: null, receivable: null, totalContracts: 0 });
+  if (!p) return res.json({ viewer, displayName: viewer, subtitle: '', party: '·', invoice: null, visibleBids: [], offer: null, receivable: null, totalContracts: 0 });
   let party: string | null = null;
   let displayName = viewer;
   let subtitle = '';
-  if (viewer === 'supplier') { party = p.supplier; displayName = DISPLAY.supplier; subtitle = 'auctioneer - sees every bid'; }
+  if (viewer === 'supplier') { party = p.supplier; displayName = DISPLAY.supplier; subtitle = 'auctioneer · sees every bid'; }
   else if (viewer === 'buyer') { party = p.buyer; displayName = DISPLAY.buyer; subtitle = 'confirms the payable'; }
   else if (viewer === 'auditor') { party = p.auditor; displayName = DISPLAY.auditor; subtitle = 'audit trail only'; }
   else { const b = bidders?.find((x) => x.key === viewer); if (b) { party = b.party; displayName = b.name; subtitle = b.appetite + ' bidder'; } }
