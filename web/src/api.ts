@@ -11,12 +11,12 @@ export const fetchViews = async (): Promise<RoleView[]> =>
     }),
   );
 
-export const scoreInvoice = async (amount: number, tenorDays: number, priorBook = 0) => {
-  const res = await fetch('/api/score', {
+export const action = async (name: string, body: object = {}): Promise<any> => {
+  const res = await fetch(`/api/actions/${name}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount, tenorDays, priorBook }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`score -> ${res.status}`);
+  if (!res.ok) throw new Error(`${name} -> ${res.status} ${await res.text()}`);
   return res.json();
 };

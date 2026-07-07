@@ -91,6 +91,22 @@ export const exercise = async (
   return r.result.exerciseResult;
 };
 
+export const exerciseMulti = async (
+  actAs: string[],
+  entity: string,
+  contractId: string,
+  choice: string,
+  argument: object = {},
+): Promise<any> => {
+  const r = await call('/v1/exercise', partyToken(actAs), {
+    templateId: templateId(entity),
+    contractId,
+    choice,
+    argument,
+  });
+  return r.result.exerciseResult;
+};
+
 export const query = async (party: string, entities: string[]): Promise<Contract[]> => {
   const r = await call('/v1/query', partyToken([party]), {
     templateIds: entities.map(templateId),

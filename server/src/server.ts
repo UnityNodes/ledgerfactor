@@ -99,15 +99,8 @@ const bootstrap = async (): Promise<void> => {
       financier: await getOrAllocate('Financier'),
       auditor: await getOrAllocate('Auditor'),
     };
-    const existing = await ledger.query(parties.supplier, ['Invoice', 'FinancingOffer', 'FinancedReceivable']);
-    if (existing.length > 0) {
-      seeded = true;
-      console.log(`[bootstrap] ledger already seeded (${existing.length} contracts) - reusing`);
-      return;
-    }
-    await seedScene(parties);
     seeded = true;
-    console.log('[bootstrap] seeded scene for parties', parties);
+    console.log('[bootstrap] parties ready', parties);
   } catch (e) {
     bootError = String(e);
     console.error('[bootstrap] failed:', e);
@@ -165,6 +158,99 @@ app.post('/api/score', async (req, res) => {
   const result = scoreFor(amount, tenorDays, buyer ?? DISPLAY.buyer, num(priorBook));
   const memo = await explainScore(result);
   res.json({ result, memo });
+});
+
+const need = (): Parties => {
+  if (!parties) throw new Error('parties not ready');
+  return parties;
+};
+const fail = (res: express.Response, e: unknown) => res.status(500).json({ error: String(e) });
+
+app.post('/api/actions/invoice', async (req, res) => {
+  try {
+    const p = need();
+    const { amount, description } = req.body ?? {};
+    const inv = await ledger.create(p.supplier, 'Invoice', {
+      supplier: p.supplier, buyer: p.buyer, financier: null,
+      amount: String(amount ?? 100000), description: description || 'New receivable', status: 'Issued',
+    });
+    res.json({ invoiceCid: inv.contractId });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/confirm', async (req, res) => {
+  try {
+    const p = need();
+    const cid = await ledger.exercise(p.buyer, 'Invoice', req.body.invoiceCid, 'Confirm', {});
+    res.json({ invoiceCid: cid });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/list', async (req, res) => {
+  try {
+    const p = need();
+    const cid = await ledger.exercise(p.supplier, 'Invoice', req.body.invoiceCid, 'ListForFinancing', { newFinancier: p.financier });
+    res.json({ invoiceCid: cid });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/underwrite', async (req, res) => {
+  try {
+    const { amount, tenorDays } = req.body ?? {};
+    const result = scoreFor(Number(amount), Number(tenorDays ?? DEFAULT_TENOR), DISPLAY.buyer, 0);
+    const memo = await explainScore(result);
+    res.json({ result, memo });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/offer', async (req, res) => {
+  try {
+    const p = need();
+    const { invoiceCid, faceAmount, discountRate } = req.body ?? {};
+    const prop = await ledger.create(p.financier, 'FinancingProposal', {
+      financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
+      invoiceCid, faceAmount: String(faceAmount), discountRate: String(discountRate),
+    });
+    const offerCid = await ledger.exercise(p.supplier, 'FinancingProposal', prop.contractId, 'AcceptProposal', {});
+    res.json({ offerCid });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/finance', async (req, res) => {
+  try {
+    const p = need();
+    const { offerCid, faceAmount } = req.body ?? {};
+    const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: String(faceAmount) });
+    const result = await ledger.exercise(p.financier, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
+    res.json({ ok: true, result });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/reset', async (_req, res) => {
+  try {
+    const p = need();
+    const archive = async (party: string, entity: string) => {
+      for (const c of await ledger.query(party, [entity])) {
+        try { await ledger.exercise(party, entity, c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+    };
+    const archiveOffers = async () => {
+      for (const c of await ledger.query(p.financier, ['FinancingOffer'])) {
+        try { await ledger.exerciseMulti([p.financier, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+    };
+    await archive(p.supplier, 'Invoice');
+    await archive(p.financier, 'FinancingProposal');
+    await archiveOffers();
+    await archive(p.financier, 'FinancedReceivable');
+    await archive(p.supplier, 'Cash');
+    await archive(p.financier, 'Cash');
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/actions/sample', async (_req, res) => {
+  try { await seedScene(need()); res.json({ ok: true }); } catch (e) { fail(res, e); }
 });
 
 app.listen(PORT, () => {

@@ -9,10 +9,12 @@ financier is entitled to see.
 Built for HackCanton S2 - Track 2 (Financial Applications) + Track 1 (RWA &
 Business Workflows). Business brief: [docs/business-brief.md](docs/business-brief.md).
 
-**Live:** https://ledgerfactor.unitynodes.com - persistent systemd services behind
+**Live:** https://ledgerfactor.unitynodes.com - an interactive guided demo: create an
+invoice and step it through issue → confirm → list → AI-underwrite → offer → settle,
+watching the four participant nodes update live. Persistent systemd services behind
 Caddy + Cloudflare; see [docs/deploy.md](docs/deploy.md).
 
-![Four role views of the same invoice](docs/demo-four-screens.png)
+![The offer step - the 1.97% margin appears only on the Supplier and Financier nodes; Buyer and Auditor get a redaction bar](docs/demo-four-screens.png)
 
 ## Why this runs only on Canton
 
