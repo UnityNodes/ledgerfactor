@@ -44,8 +44,9 @@
   --redact: #030507;
   --redact-glyph: #14202b;
 
-  --font-display: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
-  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: 'Newsreader Variable', 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-body: 'Hanken Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   --ease-out: cubic-bezier(0.16, 0.84, 0.24, 1);
   --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
@@ -70,7 +71,7 @@ body {
     linear-gradient(178deg, var(--ink-2) 0%, var(--ink) 55%, #04060a 100%);
   background-attachment: fixed;
   color: var(--text);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   min-height: 100vh;
   line-height: 1.5;
   overflow-x: hidden;
