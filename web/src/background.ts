@@ -1,243 +1,193 @@
+// Aurora Drift - candlelight behind obsidian glass.
+// A handful of large, soft gold and teal light-fields drift and breathe across a
+// near-black canvas, overlapping additively into a quiet living aurora. Barely-there,
+// premium, never fighting the foreground. Canvas 2D only, no filters, one rAF loop.
 export function mountBackground(canvas: HTMLCanvasElement): () => void {
-  const ctx = canvas.getContext('2d', { alpha: true });
+  const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) return () => {};
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let W = 0, H = 0, dpr = 1;
-  let raf = 0;
-  let t0 = performance.now();
+  const reduce =
+    typeof window !== 'undefined' &&
+    !!window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const GLYPHS = '0123456789ABCDEF⬡◇◈⊘⊗∎∴⋮';
-  const cell = 42;
-  let cols = 0, rows = 0;
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
 
-  interface Mote {
-    x: number; y: number; vy: number; vx: number; ch: string; size: number;
-    life: number; ttl: number; alpha: number; gold: boolean; swap: number; swapT: number;
-  }
-  let motes: Mote[] = [];
+  // Warm-dark palette: ink, brass, obsidian.
+  const BASE_TOP = '#070a0f';
+  const BASE_BOT = '#05070a';
+  const GOLD = [214, 176, 106] as const;
+  const TEAL = [70, 208, 166] as const;
 
-  // --- GRAFT: gold MARGIN-routing burst (from Living Ledger, re-plumbed) ---
-  // A bounded ring of gold packets that ignite from the margin-card region and
-  // route outward to only two bearings, then fade. Fired explicitly by
-  // canvas.__routeMargin() from App.tsx at the offer step -- no MutationObserver,
-  // and gold appears ONLY here at the disclosure moment (color contract intact).
-  interface Packet {
-    ox: number; oy: number; ang: number; dist: number; p: number; speed: number; size: number;
-  }
-  let packets: Packet[] = [];
-  let ripple = 0;             // 0..1 expanding disclosure ring, 0 = idle
-  let rippleX = 0, rippleY = 0;
+  type Field = {
+    color: readonly [number, number, number];
+    // drift: base position + two orbital components (fractions of viewport)
+    bx: number; by: number;
+    ax1: number; ay1: number; ax2: number; ay2: number;
+    fx1: number; fy1: number; fx2: number; fy2: number;
+    px1: number; py1: number; px2: number; py2: number;
+    // breathing radius (fraction of the larger viewport dimension)
+    rBase: number; rAmp: number; rFreq: number; rPhase: number;
+    // breathing alpha
+    aBase: number; aAmp: number; aFreq: number; aPhase: number;
+  };
 
-  function fireRoute() {
-    // origin: read the live margin card's on-screen position so the burst
-    // physically emanates from it; fall back to a right-of-centre zone.
-    let cx = W * 0.62, cy = H * 0.5;
-    try {
-      const el = document.querySelector('.card-sensitive');
-      if (el) {
-        const r = (el as HTMLElement).getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
-      }
-    } catch (e) { /* ignore */ }
-    rippleX = cx; rippleY = cy;
-    ripple = 0.0001;          // arm the expanding ring
-    packets = [];
-    // route to ONLY two bearings -- the disclosed parties -- redaction in light.
-    const bearings = [-0.62, 0.62];
-    const perBearing = reduce ? 3 : 9;
-    for (const b of bearings) {
-      for (let i = 0; i < perBearing; i++) {
-        packets.push({
-          ox: cx, oy: cy,
-          ang: b + (Math.random() - 0.5) * 0.5,
-          dist: 120 + Math.random() * 240,
-          p: -i * 0.04,       // stagger the emission
-          speed: 0.55 + Math.random() * 0.5,
-          size: 1.6 + Math.random() * 2.2,
-        });
-      }
-    }
-  }
-  (canvas as unknown as { __routeMargin?: () => void }).__routeMargin = fireRoute;
+  // A restrained set: two gold, two teal, sizes and speeds varied so they never
+  // beat in sync. Alphas are deliberately low - additive stacking does the rest.
+  const fields: Field[] = [
+    {
+      color: GOLD,
+      bx: 0.28, by: 0.32,
+      ax1: 0.10, ay1: 0.07, ax2: 0.05, ay2: 0.04,
+      fx1: 0.017, fy1: 0.013, fx2: 0.031, fy2: 0.023,
+      px1: 0.0, py1: 1.7, px2: 3.1, py2: 0.6,
+      rBase: 0.62, rAmp: 0.06, rFreq: 0.011, rPhase: 0.4,
+      aBase: 0.050, aAmp: 0.016, aFreq: 0.009, aPhase: 1.2,
+    },
+    {
+      color: TEAL,
+      bx: 0.74, by: 0.30,
+      ax1: 0.09, ay1: 0.08, ax2: 0.04, ay2: 0.05,
+      fx1: 0.014, fy1: 0.019, fx2: 0.027, fy2: 0.033,
+      px1: 2.2, py1: 0.3, px2: 1.1, py2: 4.0,
+      rBase: 0.58, rAmp: 0.07, rFreq: 0.013, rPhase: 2.1,
+      aBase: 0.044, aAmp: 0.015, aFreq: 0.011, aPhase: 0.2,
+    },
+    {
+      color: GOLD,
+      bx: 0.60, by: 0.78,
+      ax1: 0.11, ay1: 0.06, ax2: 0.06, ay2: 0.05,
+      fx1: 0.012, fy1: 0.021, fx2: 0.025, fy2: 0.017,
+      px1: 4.5, py1: 2.4, px2: 0.7, py2: 3.3,
+      rBase: 0.66, rAmp: 0.05, rFreq: 0.010, rPhase: 3.0,
+      aBase: 0.038, aAmp: 0.014, aFreq: 0.008, aPhase: 2.6,
+    },
+    {
+      color: TEAL,
+      bx: 0.20, by: 0.80,
+      ax1: 0.08, ay1: 0.09, ax2: 0.05, ay2: 0.04,
+      fx1: 0.019, fy1: 0.011, fx2: 0.029, fy2: 0.037,
+      px1: 1.3, py1: 5.0, px2: 2.8, py2: 1.9,
+      rBase: 0.54, rAmp: 0.06, rFreq: 0.014, rPhase: 0.9,
+      aBase: 0.040, aAmp: 0.013, aFreq: 0.012, aPhase: 4.1,
+    },
+  ];
 
-  function spawn(): Mote {
-    return {
-      x: Math.random() * W,
-      y: Math.random() * H,
-      vy: 6 + Math.random() * 16,
-      vx: (Math.random() - 0.5) * 4,
-      ch: GLYPHS[(Math.random() * GLYPHS.length) | 0],
-      size: 10 + Math.random() * 9,
-      life: 0,
-      ttl: 6 + Math.random() * 10,
-      alpha: 0.05 + Math.random() * 0.22,
-      gold: Math.random() < 0.16,
-      swap: 0.6 + Math.random() * 1.4,
-      swapT: 0,
-    };
+  // Static overlays are pre-baked on resize and reused every frame (zero
+  // per-frame gradient allocation). The base is a vertical ink wash; the
+  // vignette presses the edges into obsidian so the currents never fight
+  // foreground content at the margins.
+  let baseGrad: CanvasGradient | null = null;
+  let vignetteGrad: CanvasGradient | null = null;
+
+  function buildStatics() {
+    const base = ctx!.createLinearGradient(0, 0, 0, height);
+    base.addColorStop(0, BASE_TOP);
+    base.addColorStop(1, BASE_BOT);
+    baseGrad = base;
+
+    const maxDim = Math.max(width, height);
+    const vig = ctx!.createRadialGradient(
+      width * 0.5, height * 0.46, maxDim * 0.28,
+      width * 0.5, height * 0.5, maxDim * 0.82
+    );
+    vig.addColorStop(0, 'rgba(5,7,10,0)');
+    vig.addColorStop(0.62, 'rgba(5,7,10,0.16)');
+    vig.addColorStop(1, 'rgba(5,7,10,0.46)');
+    vignetteGrad = vig;
   }
 
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = Math.max(1, Math.round(height * dpr));
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
     ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    cols = Math.ceil(W / cell) + 1;
-    rows = Math.ceil(H / cell) + 1;
-    const count = Math.max(14, Math.min(46, Math.floor((W * H) / 42000)));
-    motes = new Array(count).fill(0).map(() => spawn());
+    buildStatics();
+    if (reduce) draw(6.0); // static, mid-phase calm frame
   }
 
-  function draw(now: number) {
+  function paintField(f: Field, t: number) {
     const g = ctx!;
-    const dt = Math.min(0.05, (now - t0) / 1000);
-    t0 = now;
-    const time = now / 1000;
-    g.clearRect(0, 0, W, H);
+    const maxDim = Math.max(width, height);
+    const cx =
+      (f.bx +
+        f.ax1 * Math.sin(t * f.fx1 * Math.PI * 2 + f.px1) +
+        f.ax2 * Math.sin(t * f.fx2 * Math.PI * 2 + f.px2)) * width;
+    const cy =
+      (f.by +
+        f.ay1 * Math.sin(t * f.fy1 * Math.PI * 2 + f.py1) +
+        f.ay2 * Math.sin(t * f.fy2 * Math.PI * 2 + f.py2)) * height;
 
-    // --- breathing ledger-grid hairlines with a moving highlight sweep ---
-    const sweep = (time * 0.06) % 1;
-    g.lineWidth = 1;
-    for (let i = 0; i < cols; i++) {
-      const x = i * cell + 0.5;
-      const phase = (i / cols + sweep) % 1;
-      const glow = Math.pow(Math.max(0, 1 - Math.abs(phase - 0.5) * 2.2), 3);
-      const a = 0.015 + glow * 0.05;
-      g.strokeStyle = 'rgba(120,150,170,' + a.toFixed(3) + ')';
-      g.beginPath();
-      g.moveTo(x, 0);
-      g.lineTo(x, H);
-      g.stroke();
-    }
-    for (let j = 0; j < rows; j++) {
-      const y = j * cell + 0.5;
-      const phase = (j / rows + sweep * 0.7) % 1;
-      const glow = Math.pow(Math.max(0, 1 - Math.abs(phase - 0.5) * 2.2), 3);
-      const a = 0.012 + glow * 0.04;
-      g.strokeStyle = 'rgba(120,150,170,' + a.toFixed(3) + ')';
-      g.beginPath();
-      g.moveTo(0, y);
-      g.lineTo(W, y);
-      g.stroke();
-    }
+    const r =
+      (f.rBase + f.rAmp * Math.sin(t * f.rFreq * Math.PI * 2 + f.rPhase)) * maxDim;
+    let a = (f.aBase + f.aAmp * Math.sin(t * f.aFreq * Math.PI * 2 + f.aPhase)) * 1.5;
+    if (a < 0) a = 0;
 
-    // --- occasional gold 'ledger commit' pulse rings at intersections ---
-    const pulseSeed = Math.floor(time * 0.5);
-    for (let k = 0; k < 5; k++) {
-      const seed = (pulseSeed + k * 131) % 997;
-      const gx = ((seed * 53) % cols) * cell;
-      const gy = ((seed * 97) % rows) * cell;
-      const localT = (time * 0.5) % 1;
-      const r = localT * 22;
-      const a = (1 - localT) * 0.18;
-      g.strokeStyle = 'rgba(214,176,106,' + a.toFixed(3) + ')';
-      g.lineWidth = 1;
-      g.beginPath();
-      g.arc(gx, gy, r, 0, Math.PI * 2);
-      g.stroke();
-      g.fillStyle = 'rgba(214,176,106,' + (a * 1.4).toFixed(3) + ')';
-      g.fillRect(gx - 1, gy - 1, 2, 2);
-    }
+    const [cr, cg, cb] = f.color;
+    const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+    // Soft falloff built from many low-alpha stops = blur without filters.
+    grad.addColorStop(0.0, `rgba(${cr},${cg},${cb},${a})`);
+    grad.addColorStop(0.18, `rgba(${cr},${cg},${cb},${a * 0.72})`);
+    grad.addColorStop(0.4, `rgba(${cr},${cg},${cb},${a * 0.38})`);
+    grad.addColorStop(0.66, `rgba(${cr},${cg},${cb},${a * 0.14})`);
+    grad.addColorStop(1.0, `rgba(${cr},${cg},${cb},0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, width, height);
+  }
 
-    // --- drifting hex/crypto glyph field (a few glowing gold) ---
-    g.textBaseline = 'middle';
-    g.textAlign = 'center';
-    for (const m of motes) {
-      m.y += m.vy * dt;
-      m.x += m.vx * dt;
-      m.life += dt;
-      m.swapT += dt;
-      if (m.swapT >= m.swap) { m.swapT = 0; m.ch = GLYPHS[(Math.random() * GLYPHS.length) | 0]; }
-      if (m.y > H + 30 || m.life > m.ttl) {
-        Object.assign(m, spawn());
-        m.y = -20;
-        m.x = Math.random() * W;
-      }
-      const fade = Math.min(1, m.life * 0.6) * Math.min(1, (m.ttl - m.life) * 0.6);
-      const a = m.alpha * Math.max(0, fade);
-      if (a <= 0.002) continue;
-      g.font = m.size.toFixed(1) + 'px "JetBrains Mono Variable", monospace';
-      if (m.gold) {
-        g.fillStyle = 'rgba(214,176,106,' + a.toFixed(3) + ')';
-        g.shadowColor = 'rgba(214,176,106,0.5)';
-        g.shadowBlur = 6;
-      } else {
-        g.fillStyle = 'rgba(150,185,205,' + a.toFixed(3) + ')';
-        g.shadowBlur = 0;
-      }
-      g.fillText(m.ch, m.x, m.y);
-      g.shadowBlur = 0;
-    }
+  function draw(t: number) {
+    const g = ctx!;
+    // Base ink wash (cached, opaque - no clear needed since alpha:false).
+    g.fillStyle = baseGrad!;
+    g.fillRect(0, 0, width, height);
 
-    // --- GRAFT: disclosure ripple + gold routing packets (the money-shot payoff) ---
-    if (ripple > 0) {
-      ripple += dt * 0.9;
-      const rr = ripple * Math.min(W, H) * 0.42;
-      const ringA = Math.max(0, 0.5 * (1 - ripple));
-      if (ringA > 0.004) {
-        g.strokeStyle = 'rgba(243,217,154,' + ringA.toFixed(3) + ')';
-        g.lineWidth = 2;
-        g.beginPath();
-        g.arc(rippleX, rippleY, rr, 0, Math.PI * 2);
-        g.stroke();
-        g.strokeStyle = 'rgba(214,176,106,' + (ringA * 0.6).toFixed(3) + ')';
-        g.lineWidth = 6;
-        g.beginPath();
-        g.arc(rippleX, rippleY, rr * 0.72, 0, Math.PI * 2);
-        g.stroke();
-      }
-      if (ripple >= 1) ripple = 0;
-    }
+    // Living aurora, stacked additively.
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < fields.length; i++) paintField(fields[i], t);
+    g.globalCompositeOperation = 'source-over';
 
-    if (packets.length) {
-      let alive = false;
-      for (const pk of packets) {
-        pk.p += dt * pk.speed;
-        if (pk.p < 0) { alive = true; continue; }     // still staggered-in
-        if (pk.p >= 1) continue;                        // done
-        alive = true;
-        const e = pk.p * (2 - pk.p);                    // ease-out
-        const x = pk.ox + Math.cos(pk.ang) * pk.dist * e;
-        const y = pk.oy + Math.sin(pk.ang) * pk.dist * e;
-        const a = 0.9 * (1 - pk.p);
-        const glow = pk.size * 3.2;
-        const rg = g.createRadialGradient(x, y, 0, x, y, glow);
-        rg.addColorStop(0, 'rgba(243,217,154,' + a.toFixed(3) + ')');
-        rg.addColorStop(0.4, 'rgba(214,176,106,' + (a * 0.4).toFixed(3) + ')');
-        rg.addColorStop(1, 'rgba(214,176,106,0)');
-        g.fillStyle = rg;
-        g.beginPath();
-        g.arc(x, y, glow, 0, Math.PI * 2);
-        g.fill();
-        g.fillStyle = 'rgba(255,248,224,' + Math.min(0.95, a + 0.15).toFixed(3) + ')';
-        g.beginPath();
-        g.arc(x, y, pk.size * 0.55, 0, Math.PI * 2);
-        g.fill();
-      }
-      if (!alive) packets = [];
-    }
+    // Cached vignette presses the margins back into obsidian.
+    g.fillStyle = vignetteGrad!;
+    g.fillRect(0, 0, width, height);
+  }
 
-    raf = requestAnimationFrame(draw);
+  let raf = 0;
+  let start = 0;
+
+  function frame(now: number) {
+    if (!start) start = now;
+    const t = (now - start) / 1000;
+    draw(t);
+    raf = requestAnimationFrame(frame);
+  }
+
+  // Debounced resize: coalesces the burst of events fired during a window drag
+  // into a single re-setup, and re-honors reduced-motion once it settles.
+  let resizeTimer = 0;
+  function onResize() {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      resizeTimer = 0;
+      resize();
+    }, 150);
   }
 
   resize();
-  window.addEventListener('resize', resize);
-  if (reduce) {
-    draw(performance.now());
-    cancelAnimationFrame(raf);
-  } else {
-    raf = requestAnimationFrame(draw);
+  window.addEventListener('resize', onResize);
+
+  if (!reduce) {
+    raf = requestAnimationFrame(frame);
   }
 
-  return function cleanup() {
-    cancelAnimationFrame(raf);
-    window.removeEventListener('resize', resize);
-    try { delete (canvas as unknown as { __routeMargin?: () => void }).__routeMargin; } catch (e) { /* ignore */ }
-    ctx!.clearRect(0, 0, W, H);
+  return () => {
+    if (raf) cancelAnimationFrame(raf);
+    if (resizeTimer) clearTimeout(resizeTimer);
+    window.removeEventListener('resize', onResize);
   };
 }
