@@ -1,0 +1,16 @@
+[Unit]
+Description=LedgerFactor - Canton sandbox (ledger API :6865)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ledgerfactor
+Group=ledgerfactor
+ExecStart=/root/ledgerfactor/scripts/systemd/lf-sandbox.sh
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

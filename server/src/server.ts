@@ -76,6 +76,16 @@ const seedScene = async (p: Parties): Promise<void> => {
   await ledger.exercise(p.financier, 'FinancingOffer', offerB, 'AcceptFinancing', { financierCashCid: cash.contractId });
 };
 
+const getOrAllocate = async (hint: string): Promise<string> => {
+  try {
+    const existing = (await ledger.listParties()).find((p) => p.identifier.startsWith(hint + '::'));
+    if (existing) return existing.identifier;
+  } catch {
+    /* fall through to allocation */
+  }
+  return ledger.allocateParty(hint);
+};
+
 const bootstrap = async (): Promise<void> => {
   for (let i = 0; i < 60; i++) {
     if (await ledger.healthy()) break;
@@ -84,11 +94,17 @@ const bootstrap = async (): Promise<void> => {
   if (!(await ledger.healthy())) { bootError = 'JSON API never became ready'; return; }
   try {
     parties = {
-      supplier: await ledger.allocateParty('Supplier'),
-      buyer: await ledger.allocateParty('Buyer'),
-      financier: await ledger.allocateParty('Financier'),
-      auditor: await ledger.allocateParty('Auditor'),
+      supplier: await getOrAllocate('Supplier'),
+      buyer: await getOrAllocate('Buyer'),
+      financier: await getOrAllocate('Financier'),
+      auditor: await getOrAllocate('Auditor'),
     };
+    const existing = await ledger.query(parties.supplier, ['Invoice', 'FinancingOffer', 'FinancedReceivable']);
+    if (existing.length > 0) {
+      seeded = true;
+      console.log(`[bootstrap] ledger already seeded (${existing.length} contracts) - reusing`);
+      return;
+    }
     await seedScene(parties);
     seeded = true;
     console.log('[bootstrap] seeded scene for parties', parties);

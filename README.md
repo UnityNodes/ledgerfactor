@@ -9,6 +9,9 @@ financier is entitled to see.
 Built for HackCanton S2 - Track 2 (Financial Applications) + Track 1 (RWA &
 Business Workflows). Business brief: [docs/business-brief.md](docs/business-brief.md).
 
+**Live:** https://ledgerfactor.unitynodes.com - persistent systemd services behind
+Caddy + Cloudflare; see [docs/deploy.md](docs/deploy.md).
+
 ![Four role views of the same invoice](docs/demo-four-screens.png)
 
 ## Why this runs only on Canton
@@ -103,5 +106,6 @@ daml test
 - [x] Live JSON API gateway + party-scoped role views
 - [x] Four-role frontend (supplier / buyer / financier / auditor)
 - [x] Business brief + pilot plan
+- [x] Persistent deployment (systemd + Caddy) at ledgerfactor.unitynodes.com
 - [ ] Real token-standard DvP settlement (stretch)
 - [ ] Runtime compliance citation via CCPEDIA MCP in the auditor view (stretch)

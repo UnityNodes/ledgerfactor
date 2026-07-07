@@ -65,6 +65,11 @@ export const allocateParty = async (hint: string): Promise<string> => {
   return r.result.identifier as string;
 };
 
+export const listParties = async (): Promise<{ identifier: string }[]> => {
+  const r = await call('/v1/parties', adminToken());
+  return (r.result ?? []) as { identifier: string }[];
+};
+
 export const create = async (party: string, entity: string, payload: object): Promise<Contract> => {
   const r = await call('/v1/create', partyToken([party]), { templateId: templateId(entity), payload });
   return r.result as Contract;

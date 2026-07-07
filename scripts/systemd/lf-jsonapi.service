@@ -1,0 +1,17 @@
+[Unit]
+Description=LedgerFactor - JSON Ledger API (:7575)
+After=lf-sandbox.service
+Requires=lf-sandbox.service
+PartOf=lf-sandbox.service
+
+[Service]
+Type=simple
+User=ledgerfactor
+Group=ledgerfactor
+ExecStart=/root/ledgerfactor/scripts/systemd/lf-jsonapi.sh
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=LedgerFactor - API gateway + AI scoring (:8080)
+After=lf-jsonapi.service
+Requires=lf-jsonapi.service
+PartOf=lf-jsonapi.service
+
+[Service]
+Type=simple
+User=ledgerfactor
+Group=ledgerfactor
+ExecStart=/root/ledgerfactor/scripts/systemd/lf-server.sh
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
