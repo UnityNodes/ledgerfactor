@@ -39,7 +39,7 @@ sees what is decided by Canton, not by the UI.
 
 ## Economic flows & incentives
 
-- **Supplier** receives `advance = face × (1 − discount)` today, trading a known,
+- **Supplier** receives `advance = face × (1 - discount)` today, trading a known,
   confidential discount for liquidity. The buyer cannot infer the discount.
 - **Financier** earns `spread = face × discount` over the tenor. The AI agent
   prices the risk; the consuming financing choice eliminates double-pledge loss.

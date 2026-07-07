@@ -435,6 +435,61 @@ export function AuctionBoard() {
     setBusy(false);
   };
 
+  const autoplay = async () => {
+    const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    setBusy(true);
+    setError(null);
+    try {
+      await resetAuction();
+      invoiceCid.current = null;
+      setSubmitted({});
+      setWinner(null);
+      setView(null);
+      setViewer('supplier');
+      setPhase('idle');
+      await pause(400);
+
+      setPhase('opening');
+      const o = await openAuction(amount, description);
+      invoiceCid.current = o.invoiceCid;
+      setBidders(o.bidders);
+      setSubmitted({});
+      setWinner(null);
+      setViewer('supplier');
+      setPhase('open');
+      await pause(1300);
+
+      setPhase('collecting');
+      for (const b of o.bidders) {
+        await bidAuction(o.invoiceCid, b.key, amount);
+        setSubmitted((s) => ({ ...s, [b.key]: true }));
+        await pause(1000);
+      }
+      setPhase('collected');
+      await loadView('supplier');
+      await pause(1500);
+
+      setViewer(o.bidders[0].key);
+      await loadView(o.bidders[0].key);
+      await pause(3000);
+      setViewer('supplier');
+      await loadView('supplier');
+      await pause(1800);
+
+      setPhase('closing');
+      const r = await closeAuction(amount);
+      setWinner(r.winner);
+      setViewer('supplier');
+      setPhase('closed');
+      await loadView('supplier');
+    } catch (e) {
+      fail(e);
+      setPhase('idle');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const visibleByKey = useMemo(() => {
     const m: Record<string, number> = {};
     view?.visibleBids.forEach((b) => (m[keyFromName(b.bidder, bidders)] = b.rate));
@@ -540,6 +595,9 @@ export function AuctionBoard() {
               <button className="btn btn-primary" onClick={handleOpen} disabled={busy}>
                 Open sealed auction <span className="arrow">▶</span>
               </button>
+            )}
+            {phase === 'idle' && (
+              <button className="btn btn-ghost" onClick={autoplay} disabled={busy}>▶▶ Auto-play</button>
             )}
             {(phase === 'open' || phase === 'collecting') && (
               <button className="btn btn-primary" onClick={collectAll} disabled={busy || allSealed}>
