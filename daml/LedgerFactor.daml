@@ -1,0 +1,122 @@
+module LedgerFactor where
+
+import DA.Optional (optionalToList)
+
+data InvoiceStatus
+  = Issued
+  | Confirmed
+  deriving (Eq, Show)
+
+template Invoice
+  with
+    supplier : Party
+    buyer : Party
+    financier : Optional Party
+    amount : Decimal
+    description : Text
+    status : InvoiceStatus
+  where
+    signatory supplier
+    observer buyer :: optionalToList financier
+    ensure amount > 0.0
+
+    choice Confirm : ContractId Invoice
+      controller buyer
+      do create this with status = Confirmed
+
+    choice ListForFinancing : ContractId Invoice
+      with
+        newFinancier : Party
+      controller supplier
+      do create this with financier = Some newFinancier
+
+template Cash
+  with
+    owner : Party
+    amount : Decimal
+  where
+    signatory owner
+    ensure amount >= 0.0
+
+template FinancedReceivable
+  with
+    financier : Party
+    supplier : Party
+    buyer : Party
+    auditor : Party
+    faceAmount : Decimal
+    description : Text
+  where
+    signatory financier
+    observer buyer, auditor
+
+data FinancingResult = FinancingResult
+  with
+    receivable : ContractId FinancedReceivable
+    supplierCash : ContractId Cash
+    financierChange : ContractId Cash
+  deriving (Eq, Show)
+
+template FinancingOffer
+  with
+    financier : Party
+    supplier : Party
+    buyer : Party
+    auditor : Party
+    invoiceCid : ContractId Invoice
+    faceAmount : Decimal
+    discountRate : Decimal
+  where
+    signatory financier, supplier
+    ensure discountRate >= 0.0 && discountRate < 1.0
+
+    choice AcceptFinancing : FinancingResult
+      with
+        financierCashCid : ContractId Cash
+      controller financier
+      do
+        inv <- fetch invoiceCid
+        assertMsg "supplier mismatch" (inv.supplier == supplier)
+        assertMsg "buyer must confirm before financing" (inv.status == Confirmed)
+        archive invoiceCid
+        let advance = faceAmount * (1.0 - discountRate)
+        cash <- fetch financierCashCid
+        assertMsg "cash must belong to financier" (cash.owner == financier)
+        assertMsg "insufficient financier cash" (cash.amount >= advance)
+        archive financierCashCid
+        supplierCash <- create Cash with owner = supplier, amount = advance
+        financierChange <- create Cash with owner = financier, amount = cash.amount - advance
+        receivable <- create FinancedReceivable with
+          financier
+          supplier
+          buyer
+          auditor
+          faceAmount
+          description = inv.description
+        pure FinancingResult with receivable, supplierCash, financierChange
+
+template FinancingProposal
+  with
+    financier : Party
+    supplier : Party
+    buyer : Party
+    auditor : Party
+    invoiceCid : ContractId Invoice
+    faceAmount : Decimal
+    discountRate : Decimal
+  where
+    signatory financier
+    observer supplier
+    ensure discountRate >= 0.0 && discountRate < 1.0
+
+    choice AcceptProposal : ContractId FinancingOffer
+      controller supplier
+      do
+        create FinancingOffer with
+          financier
+          supplier
+          buyer
+          auditor
+          invoiceCid
+          faceAmount
+          discountRate

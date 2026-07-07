@@ -1,0 +1,105 @@
+module Tests where
+
+import Daml.Script
+import LedgerFactor
+
+data Parties = Parties
+  with
+    supplier : Party
+    buyer : Party
+    financier : Party
+    auditor : Party
+
+setupParties : Script Parties
+setupParties = do
+  supplier <- allocateParty "Supplier"
+  buyer <- allocateParty "Buyer"
+  financier <- allocateParty "Financier"
+  auditor <- allocateParty "Auditor"
+  pure Parties with supplier, buyer, financier, auditor
+
+confirmedInvoice : Parties -> Decimal -> Text -> Script (ContractId Invoice)
+confirmedInvoice p amount description = do
+  iid <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financier = None
+      amount
+      description
+      status = Issued
+  submit p.buyer do exerciseCmd iid Confirm
+
+listedInvoice : Parties -> Decimal -> Text -> Script (ContractId Invoice)
+listedInvoice p amount description = do
+  cid <- confirmedInvoice p amount description
+  submit p.supplier do exerciseCmd cid ListForFinancing with newFinancier = p.financier
+
+makeOffer : Parties -> ContractId Invoice -> Decimal -> Decimal -> Script (ContractId FinancingOffer)
+makeOffer p invoiceCid faceAmount discountRate = do
+  prop <- submit p.financier do
+    createCmd FinancingProposal with
+      financier = p.financier
+      supplier = p.supplier
+      buyer = p.buyer
+      auditor = p.auditor
+      invoiceCid
+      faceAmount
+      discountRate
+  submit p.supplier do exerciseCmd prop AcceptProposal
+
+testSelectiveDisclosure : Script ()
+testSelectiveDisclosure = do
+  p <- setupParties
+  invoiceCid <- confirmedInvoice p 100000.0 "Q3 pallets"
+  _ <- makeOffer p invoiceCid 100000.0 0.03
+
+  buyerOffers <- query @FinancingOffer p.buyer
+  assertMsg "buyer must not see the financing offer that carries the margin" (null buyerOffers)
+
+  buyerProposals <- query @FinancingProposal p.buyer
+  assertMsg "buyer must not see the financing proposal either" (null buyerProposals)
+
+  financierOffers <- query @FinancingOffer p.financier
+  assertMsg "financier must see the offer with its margin" (length financierOffers == 1)
+
+  supplierOffers <- query @FinancingOffer p.supplier
+  assertMsg "supplier must see the offer with its margin" (length supplierOffers == 1)
+
+  buyerInvoices <- query @Invoice p.buyer
+  assertMsg "buyer must still see the invoice itself" (length buyerInvoices == 1)
+
+testNoDoubleFinancing : Script ()
+testNoDoubleFinancing = do
+  p <- setupParties
+  invoiceCid <- listedInvoice p 100000.0 "Q3 pallets"
+
+  offer1 <- makeOffer p invoiceCid 100000.0 0.03
+  offer2 <- makeOffer p invoiceCid 100000.0 0.05
+
+  cash1 <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  _ <- submit p.financier do exerciseCmd offer1 AcceptFinancing with financierCashCid = cash1
+
+  cash2 <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  submitMustFail p.financier do exerciseCmd offer2 AcceptFinancing with financierCashCid = cash2
+
+testHappyPathSettlement : Script ()
+testHappyPathSettlement = do
+  p <- setupParties
+  invoiceCid <- listedInvoice p 100000.0 "Q3 pallets"
+  offer <- makeOffer p invoiceCid 100000.0 0.03
+  cash <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  _ <- submit p.financier do exerciseCmd offer AcceptFinancing with financierCashCid = cash
+
+  supplierCash <- query @Cash p.supplier
+  assertMsg "supplier must be paid the 97,000 advance" (any (\(_, c) -> c.amount == 97000.0) supplierCash)
+
+  auditorView <- query @FinancedReceivable p.auditor
+  assertMsg "auditor must see the financed receivable" (length auditorView == 1)
+  assertMsg "auditor sees face value 100,000, never the margin" (any (\(_, r) -> r.faceAmount == 100000.0) auditorView)
+
+  buyerReceivable <- query @FinancedReceivable p.buyer
+  assertMsg "buyer sees it now owes the financier the face value" (length buyerReceivable == 1)
+
+  oldInvoice <- query @Invoice p.supplier
+  assertMsg "the original receivable is consumed after financing" (null oldInvoice)
