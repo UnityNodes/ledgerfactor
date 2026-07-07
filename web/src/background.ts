@@ -1,139 +1,161 @@
-// Guilloche - the fine engraved line-work on banknotes and share certificates.
-// Interwoven gold and teal rose-curves, drawn as thin low-alpha strokes on an ink
-// base, breathing almost imperceptibly. Crafted and on-theme, never a gradient blob.
-// Canvas 2D only, one rAF loop, DPR-capped, resize-safe, reduced-motion aware.
-
-interface Band {
-  r: number;
-  a: number;
-  p: number;
-  ph: number;
-  sp: number;
-  c: string;
-  w: number;
-}
+// A 3D silk-wave surface flying past in perspective. Violet strands, every
+// seventh row lilac, faint lime crest-nodes on the nearest strand, and a drift
+// of coloured specks above it. The top and left are darkened so the masthead and
+// hero copy stay legible. Canvas 2D, one rAF loop, DPR-capped, reduced-motion aware.
 
 export function mountBackground(canvas: HTMLCanvasElement): () => void {
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d');
   if (!ctx) return () => {};
 
-  const reduce =
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let w = 0;
+  let h = 0;
+  let raf = 0;
+
+  const resize = () => {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = Math.max(1, Math.round(w * DPR));
+    canvas.height = Math.max(1, Math.round(h * DPR));
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  };
+  resize();
+
+  // Floating specks, seeded so the field is stable frame to frame.
+  let seed = 11;
+  const rnd = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const specks: { x: number; y: number; sp: number; ph: number; r: number; c: string }[] = [];
+  for (let i = 0; i < 42; i++) {
+    specks.push({
+      x: rnd(),
+      y: rnd(),
+      sp: 0.00001 + rnd() * 0.00003,
+      ph: rnd() * Math.PI * 2,
+      r: 0.8 + rnd() * 1.6,
+      c: rnd() < 0.18 ? '243,255,151' : rnd() < 0.5 ? '213,165,227' : '168,159,145',
+    });
+  }
+
+  const COLS = 96;
+  const ROWS = 30;
+
+  const draw = (t: number) => {
+    ctx.fillStyle = '#030206';
+    ctx.fillRect(0, 0, w, h);
+
+    const horizon = h * 0.34;
+    const cx = w * 0.5;
+    const T1 = t * 0.00055;
+    const T2 = t * 0.00034;
+
+    const point = (i: number, j: number): [number, number] => {
+      const x = (i / (COLS - 1)) * 2 - 1;
+      const z = j / (ROWS - 1);
+      const zz = 1 - z;
+      const y =
+        0.2 * Math.sin(x * 2.6 + T1 + zz * 2.2) +
+        0.11 * Math.sin(x * 5.3 - T2 + zz * 5.0) +
+        0.06 * Math.sin(zz * 9.0 + T1 * 1.4);
+      const persp = 0.22 + zz * 1.05;
+      const sx = cx + x * w * 0.78 * persp;
+      const sy = horizon + (0.62 + y * 0.5) * h * 0.62 * persp - h * 0.1;
+      return [sx, sy];
+    };
+
+    // horizontal strands
+    for (let j = 0; j < ROWS; j++) {
+      const zz = 1 - j / (ROWS - 1);
+      const lilac = j % 7 === 3;
+      const a = (0.045 + zz * 0.16) * (lilac ? 1.5 : 1);
+      ctx.strokeStyle = lilac
+        ? 'rgba(213,165,227,' + a.toFixed(3) + ')'
+        : 'rgba(135,92,255,' + a.toFixed(3) + ')';
+      ctx.lineWidth = lilac ? 1.3 : 1;
+      ctx.beginPath();
+      for (let i = 0; i < COLS; i++) {
+        const p = point(i, j);
+        if (i === 0) ctx.moveTo(p[0], p[1]);
+        else ctx.lineTo(p[0], p[1]);
+      }
+      ctx.stroke();
+    }
+
+    // vertical strands, sparser
+    for (let i = 0; i < COLS; i += 4) {
+      ctx.strokeStyle = 'rgba(135,92,255,0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let j = 0; j < ROWS; j++) {
+        const p = point(i, j);
+        if (j === 0) ctx.moveTo(p[0], p[1]);
+        else ctx.lineTo(p[0], p[1]);
+      }
+      ctx.stroke();
+    }
+
+    // lime crest nodes on the nearest strand
+    for (let i = 6; i < COLS - 6; i += 12) {
+      const p = point(i, ROWS - 1);
+      ctx.fillStyle = 'rgba(243,255,151,0.5)';
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // floating specks above the silk
+    for (const s of specks) {
+      const sx = ((s.x + t * s.sp) % 1) * w;
+      const sy = (s.y * 0.5 + 0.03 * Math.sin(t * 0.0004 + s.ph)) * h;
+      ctx.fillStyle = 'rgba(' + s.c + ',' + (0.22 + 0.16 * Math.sin(t * 0.001 + s.ph)).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // keep the top dark for the masthead and hero text
+    const fadeTop = ctx.createLinearGradient(0, 0, 0, h * 0.52);
+    fadeTop.addColorStop(0, 'rgba(3,2,6,0.9)');
+    fadeTop.addColorStop(1, 'rgba(3,2,6,0)');
+    ctx.fillStyle = fadeTop;
+    ctx.fillRect(0, 0, w, h * 0.52);
+
+    const fadeLeft = ctx.createLinearGradient(0, 0, w * 0.5, 0);
+    fadeLeft.addColorStop(0, 'rgba(3,2,6,0.72)');
+    fadeLeft.addColorStop(1, 'rgba(3,2,6,0)');
+    ctx.fillStyle = fadeLeft;
+    ctx.fillRect(0, 0, w * 0.5, h);
+  };
+
+  const reduced =
     typeof window !== 'undefined' &&
     !!window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let W = 0;
-  let H = 0;
-  let dpr = 1;
-  let raf = 0;
-  let startT = 0;
-  let cx = 0;
-  let cy = 0;
-  let unit = 0;
-
-  const GOLD = '214, 176, 106';
-  const TEAL = '70, 208, 166';
-
-  // Each pair (same r/a/p, opposite spin, half-petal phase offset) interweaves into
-  // the classic guilloche lattice where the strands cross.
-  const bands: Band[] = [
-    { r: 0.30, a: 0.030, p: 58, ph: 0.0, sp: 0.010, c: GOLD, w: 0.7 },
-    { r: 0.30, a: 0.030, p: 58, ph: Math.PI / 58, sp: -0.010, c: GOLD, w: 0.7 },
-    { r: 0.21, a: 0.022, p: 42, ph: 0.5, sp: 0.014, c: GOLD, w: 0.6 },
-    { r: 0.21, a: 0.022, p: 42, ph: 0.5 + Math.PI / 42, sp: -0.014, c: GOLD, w: 0.6 },
-    { r: 0.41, a: 0.020, p: 88, ph: 1.2, sp: 0.007, c: TEAL, w: 0.6 },
-    { r: 0.41, a: 0.020, p: 88, ph: 1.2 + Math.PI / 88, sp: -0.007, c: TEAL, w: 0.6 },
-    { r: 0.13, a: 0.016, p: 30, ph: 2.1, sp: 0.018, c: GOLD, w: 0.5 },
-  ];
-
-  let baseGrad: CanvasGradient | null = null;
-  let vignette: CanvasGradient | null = null;
-
-  function buildStatics() {
-    const b = ctx!.createLinearGradient(0, 0, 0, H);
-    b.addColorStop(0, '#070a0f');
-    b.addColorStop(1, '#05070a');
-    baseGrad = b;
-
-    const maxDim = Math.max(W, H);
-    const v = ctx!.createRadialGradient(
-      W * 0.68, H * 0.34, maxDim * 0.12,
-      W * 0.5, H * 0.5, maxDim * 0.9
-    );
-    v.addColorStop(0, 'rgba(5,7,10,0)');
-    v.addColorStop(0.58, 'rgba(5,7,10,0.34)');
-    v.addColorStop(1, 'rgba(5,7,10,0.66)');
-    vignette = v;
-
-    cx = W * 0.68;
-    cy = H * 0.34;
-    unit = Math.min(W, H);
-  }
-
-  function resize() {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = Math.max(1, Math.round(W * dpr));
-    canvas.height = Math.max(1, Math.round(H * dpr));
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
-    ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    buildStatics();
-    if (reduce) draw(0);
-  }
-
-  function strand(bd: Band, t: number) {
-    const g = ctx!;
-    const R = bd.r * unit;
-    const A = bd.a * unit;
-    const phase = bd.ph + t * bd.sp;
-    const STEPS = 640;
-    g.beginPath();
-    for (let i = 0; i <= STEPS; i++) {
-      const th = (i / STEPS) * Math.PI * 2;
-      const rr = R + A * Math.sin(bd.p * th + phase);
-      const x = cx + rr * Math.cos(th);
-      const y = cy + rr * Math.sin(th);
-      if (i === 0) g.moveTo(x, y);
-      else g.lineTo(x, y);
-    }
-    g.strokeStyle = `rgba(${bd.c}, 0.05)`;
-    g.lineWidth = bd.w;
-    g.stroke();
-  }
-
-  function draw(t: number) {
-    const g = ctx!;
-    g.fillStyle = baseGrad!;
-    g.fillRect(0, 0, W, H);
-
-    g.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < bands.length; i++) strand(bands[i], t);
-    g.globalCompositeOperation = 'source-over';
-
-    g.fillStyle = vignette!;
-    g.fillRect(0, 0, W, H);
-  }
-
-  function frame(now: number) {
-    if (!startT) startT = now;
-    draw((now - startT) / 1000);
-    raf = requestAnimationFrame(frame);
-  }
-
   let resizeTimer = 0;
-  function onResize() {
+  const onResize = () => {
     if (resizeTimer) clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
       resizeTimer = 0;
       resize();
+      if (reduced) draw(30000);
     }, 150);
-  }
-
-  resize();
+  };
   window.addEventListener('resize', onResize);
-  if (!reduce) raf = requestAnimationFrame(frame);
+
+  if (reduced) {
+    draw(30000);
+  } else {
+    const loop = (t: number) => {
+      draw(t);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+  }
 
   return () => {
     if (raf) cancelAnimationFrame(raf);
