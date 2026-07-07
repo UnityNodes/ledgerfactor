@@ -35,12 +35,26 @@ export const fetchViews = async (): Promise<RoleView[]> =>
     }),
   );
 
-export const action = async (name: string, body: object = {}): Promise<any> => {
-  const res = await fetch(`/api/actions/${name}`, {
+const post = async (path: string, body: object): Promise<any> => {
+  const res = await fetch(`/api/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...H },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${name} -> ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`${path} -> ${res.status} ${await res.text()}`);
+  return res.json();
+};
+
+export const action = (name: string, body: object = {}): Promise<any> => post(`actions/${name}`, body);
+
+// ---- Veild sealed-bid auction ----
+export const openAuction = (amount: number, description: string): Promise<any> => post('auction/open', { amount, description });
+export const bidAuction = (invoiceCid: string, bidderKey: string, amount: number): Promise<any> =>
+  post('auction/bid', { invoiceCid, bidderKey, amount });
+export const closeAuction = (amount: number): Promise<any> => post('auction/close', { amount });
+export const resetAuction = (): Promise<any> => post('auction/reset', {});
+export const viewAuction = async (viewer: string): Promise<import('./types').AuctionView> => {
+  const res = await fetch(`/api/auction/view/${viewer}`, { headers: H });
+  if (!res.ok) throw new Error(`auction view ${viewer} -> ${res.status}`);
   return res.json();
 };

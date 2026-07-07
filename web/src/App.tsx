@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { action, fetchViews } from './api';
 import { mountBackground } from './background';
+import { AuctionBoard } from './AuctionBoard';
 import { Contract, Recommendation, RoleView, ScoringResult } from './types';
 
 const money = (x: unknown): string =>
@@ -171,6 +172,7 @@ const Panel = ({ view, margin }: { view: RoleView; margin: number | null }) => {
 export const App = () => {
   const [views, setViews] = useState<RoleView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'direct' | 'auction'>('direct');
   const [amount, setAmount] = useState(100000);
   const [description, setDescription] = useState('Q3 pallet delivery');
   const [stepIdx, setStepIdx] = useState(0);
@@ -282,8 +284,13 @@ export const App = () => {
           participant nodes side by side - the financier’s <b>margin is disclosed to only two of them</b>, enforced
           by Canton, not by this page.
         </p>
+        <div className="vld-modeswitch" role="tablist" aria-label="Demo mode">
+          <button role="tab" aria-selected={mode === 'direct'} className={mode === 'direct' ? 'on' : ''} onClick={() => setMode('direct')}>Direct financing</button>
+          <button role="tab" aria-selected={mode === 'auction'} className={mode === 'auction' ? 'on-rose' : ''} onClick={() => setMode('auction')}>Sealed auction · Veild</button>
+        </div>
       </header>
 
+      {mode === 'auction' ? <AuctionBoard /> : <>
       <section className="deck">
         <div className="deck-controls">
           <label className="field">
@@ -360,6 +367,7 @@ export const App = () => {
         <span>Daml · Canton · JSON Ledger API - each column is a live query as that party</span>
         <button className="refresh" onClick={refresh} disabled={busy}>↻ re-query</button>
       </footer>
+      </>}
     </div>
     </>
   );

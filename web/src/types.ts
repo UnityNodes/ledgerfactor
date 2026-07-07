@@ -32,3 +32,33 @@ export interface RoleView {
   groups: Groups;
   recommendations?: Recommendation[];
 }
+
+export interface AuctionBid {
+  bidder: string;
+  rate: number;
+  faceAmount: number;
+}
+
+export interface AuctionView {
+  viewer: string;
+  displayName: string;
+  subtitle: string;
+  party: string;
+  invoice: { amount: number; description: string; status: string } | null;
+  visibleBids: AuctionBid[];
+  offer: { rate: number; bidder: string } | null;
+  receivable: { faceAmount: number; description: string } | null;
+  totalContracts: number;
+}
+
+export interface AuctionBidderMeta {
+  key: string;
+  name: string;
+  appetite: string;
+}
+
+export interface AuctionMeta {
+  invoiceCid: string;
+  amount: number;
+  bidders: AuctionBidderMeta[];
+}
