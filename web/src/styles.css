@@ -179,9 +179,8 @@ h1 {
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 h1 .brass {
-  font-style: italic;
-  font-weight: 340;
-  background: linear-gradient(120deg, var(--brass-lo) 0%, var(--brass-hi) 42%, var(--brass) 60%, var(--brass-lo) 100%);
+  font-weight: 400;
+  background: linear-gradient(120deg, var(--brass) 0%, var(--brass-hi) 45%, var(--brass) 72%, var(--brass-hi) 100%);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -194,13 +193,13 @@ h1 .brass {
 .rose { color: var(--rose); }
 
 .lede {
-  max-width: 760px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.72;
+  max-width: 720px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.75;
   animation: fadeDown 1.1s var(--ease-out) 0.12s both;
 }
-.lede b { color: var(--text-dim); font-weight: 500; }
+.lede b { color: var(--brass); font-weight: 600; }
 
 /* ============================ DECK ============================ */
 .deck {
