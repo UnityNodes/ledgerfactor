@@ -36,6 +36,18 @@ const commitHash = (key: string): string => {
   return `commit ${hex.slice(0, 4)}…${hex.slice(4, 8)}`;
 };
 
+/* Deterministic hex for the sealed-envelope cipher scramble. */
+const HEXPOOL = 'AF3E9C1D0B7A4E2F8C6D5B1A9E3F7C2D0B8A6E4F1C9D3B7A5E2F8C6D4B0A9E3';
+const hexLine = (seed: number, len = 24): string => {
+  let out = '';
+  let x = (seed * 2654435761) >>> 0;
+  for (let i = 0; i < len; i++) {
+    x = (x * 1103515245 + 12345) >>> 0;
+    out += HEXPOOL[x % HEXPOOL.length];
+  }
+  return out;
+};
+
 const keyFromName = (name: string, meta: AuctionBidderMeta[]): string =>
   meta.find((m) => m.name === name)?.key ?? name.toLowerCase().split(' ')[0];
 
@@ -89,6 +101,7 @@ const Envelope = ({
     const rateStr = (rate * 100).toFixed(2);
     return (
       <article className={`env env-open ${winner ? 'is-winner' : ''}`} style={{ animationDelay: `${0.06 + index * 0.09}s` }}>
+        {winner && <span className="env-burst" aria-hidden />}
         <div className="env-open-lid">
           <span className="env-open-broke">Seal broken</span>
           <span className="env-open-wax"><span>{initial}</span></span>
@@ -122,6 +135,14 @@ const Envelope = ({
       <div className="env-sealed-body">
         <div className="env-sealed-from">{name}</div>
         <div className="env-sealed-title">{empty ? 'Awaiting bid' : 'Sealed bid'}</div>
+        {!empty && (
+          <div className="env-cipher" aria-hidden>
+            {[0, 1, 2, 3].map((r) => (
+              <span key={r} style={{ animationDelay: `${r * 0.11}s` }}>{hexLine(index * 29 + r * 7 + 3)}</span>
+            ))}
+            <span className="env-scan" />
+          </div>
+        )}
         <div className="env-sealed-hash">{empty ? 'no envelope yet' : commitHash(name + index)}</div>
         <div className="env-sealed-note">
           {empty

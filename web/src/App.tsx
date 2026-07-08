@@ -37,6 +37,18 @@ const STEPS: Step[] = [
 
 const STATUS_LABEL = ['Draft', 'Issued', 'Confirmed', 'Listed', 'Underwritten', 'Offer made', 'Settled'];
 
+/* Deterministic hex for the withheld cipher scramble. */
+const HEXPOOL = 'AF3E9C1D0B7A4E2F8C6D5B1A9E3F7C2D0B8A6E4F1C9D3B7A5E2F8C6D4B0A9E3';
+const hexLine = (seed: number, len = 20): string => {
+  let out = '';
+  let x = (seed * 2654435761) >>> 0;
+  for (let i = 0; i < len; i++) {
+    x = (x * 1103515245 + 12345) >>> 0;
+    out += HEXPOOL[x % HEXPOOL.length];
+  }
+  return out;
+};
+
 const Row = ({ label, value, accent }: { label: string; value: React.ReactNode; accent?: 'lilac' | 'ink' }) => (
   <div className="noderow">
     <span className="noderow-k">{label}</span>
@@ -46,6 +58,8 @@ const Row = ({ label, value, accent }: { label: string; value: React.ReactNode; 
 
 const MarginReveal = ({ rate }: { rate: number }) => (
   <div className="marginbox reveal">
+    <span className="ignite-ember" aria-hidden />
+    <span className="ignite-rake" aria-hidden />
     <div className="marginbox-label">Financier margin</div>
     <div className="marginbox-figure">
       {(rate * 100).toFixed(2)}<span className="marginbox-pct">%</span>
@@ -57,7 +71,12 @@ const MarginReveal = ({ rate }: { rate: number }) => (
 const MarginWithheld = () => (
   <div className="marginbox withheld">
     <div className="marginbox-label">Financier margin</div>
-    <div className="marginbox-figure dots">···</div>
+    <div className="marginbox-cipher" aria-hidden>
+      {[0, 1, 2].map((r) => (
+        <span key={r} style={{ animationDelay: `${r * 0.13}s` }}>{hexLine(r * 17 + 5)}</span>
+      ))}
+      <span className="cipher-scan" />
+    </div>
     <div className="marginbox-note">Withheld by the ledger</div>
   </div>
 );

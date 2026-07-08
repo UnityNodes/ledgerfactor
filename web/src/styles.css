@@ -891,7 +891,7 @@ input { font-family: inherit; }
 }
 .refresh:hover:not(:disabled) { color: var(--text); border-color: var(--line-strong); }
 
-/* ============ MOTION POLISH ============ */
+/* ============ MOTION / LIVING ANIMATIONS ============ */
 /* Staggered entrance for the four participant nodes. */
 .nodecard { animation: card-rise 0.55s var(--ease) both; }
 .nodecard:nth-child(1) { animation-delay: 0.02s; }
@@ -903,22 +903,105 @@ input { font-family: inherit; }
   to { opacity: 1; transform: none; }
 }
 
-/* The margin reveal: pops in, then a single lime light-rake crosses it. */
-.marginbox.reveal { position: relative; overflow: hidden; animation: reveal-pop 0.5s var(--ease) both; }
-.marginbox.reveal::after {
-  content: '';
+/* MARGIN REVEAL IGNITION: pops in, a molten ember breathes underneath,
+   and a lime light-rake keeps sweeping across it. */
+.marginbox.reveal { position: relative; overflow: hidden; animation: reveal-pop 0.55s var(--ease) both; }
+.marginbox.reveal > * { position: relative; z-index: 2; }
+.ignite-ember {
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, transparent 32%, rgba(243, 255, 151, 0.22) 50%, transparent 68%);
-  transform: translateX(-130%);
-  animation: sheen 1.15s var(--ease) 0.22s 1;
+  z-index: 0;
   pointer-events: none;
+  background: radial-gradient(130% 90% at 50% 128%, rgba(243, 255, 151, 0.2), transparent 68%);
+  animation: ember 3s var(--ease) infinite;
+}
+.ignite-rake {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 34%, rgba(243, 255, 151, 0.28) 50%, transparent 66%);
+  transform: translateX(-130%);
+  animation: rake 4.2s var(--ease) 0.3s infinite;
 }
 @keyframes reveal-pop {
   from { opacity: 0; transform: scale(0.985); }
   to { opacity: 1; transform: none; }
 }
-@keyframes sheen { to { transform: translateX(130%); } }
+@keyframes ember { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+@keyframes rake { 0% { transform: translateX(-130%); } 42%, 100% { transform: translateX(130%); } }
+
+/* WITHHELD LIVING CIPHER: a reglyphing encrypted field under the hatch,
+   with a lilac scanline travelling down it. Never leaks the real rate. */
+.marginbox.withheld { position: relative; overflow: hidden; }
+.marginbox-cipher {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  color: rgba(213, 165, 227, 0.5);
+  overflow: hidden;
+  user-select: none;
+}
+.marginbox-cipher span { white-space: nowrap; animation: cipher-flicker 1.9s steps(1, end) infinite; }
+.cipher-scan {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 0;
+  height: 12px;
+  background: linear-gradient(180deg, rgba(213, 165, 227, 0.28), transparent);
+  animation: cipher-scan 2.6s var(--ease) infinite;
+}
+@keyframes cipher-flicker { 0%, 100% { opacity: 0.35; } 20% { opacity: 0.75; } 45% { opacity: 0.2; } 70% { opacity: 0.6; } }
+@keyframes cipher-scan { 0% { transform: translateY(-8px); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateY(52px); opacity: 0; } }
+
+/* SEALED ENVELOPE CIPHER: hex bleeds through the paper, a violet scanline
+   sweeps it, so a sealed rival visibly withholds its contents. */
+.env-cipher {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 10px 0 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  color: rgba(135, 92, 255, 0.42);
+  overflow: hidden;
+  user-select: none;
+}
+.env-cipher span { white-space: nowrap; overflow: hidden; text-overflow: clip; animation: cipher-flicker 2.1s steps(1, end) infinite; }
+.env-scan {
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  top: 0;
+  height: 14px;
+  background: linear-gradient(180deg, rgba(159, 121, 255, 0.3), transparent);
+  animation: env-scan 3s var(--ease) infinite;
+}
+@keyframes env-scan { 0% { transform: translateY(-10px); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateY(70px); opacity: 0; } }
+
+/* WINNER BURST: a lime flash blooms behind the winning slip on reveal. */
+.env-open.is-winner { position: relative; }
+.env-burst {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(58% 46% at 50% 40%, rgba(243, 255, 151, 0.2), transparent 70%);
+  animation: burst 1s var(--ease) both;
+}
+.env-open.is-winner .env-open-lid,
+.env-open.is-winner .env-open-body { position: relative; z-index: 1; }
+@keyframes burst { 0% { opacity: 0; transform: scale(0.6); } 45% { opacity: 1; } 100% { opacity: 0.55; transform: scale(1); } }
 
 /* Gentle breathing on the active "offer" step so the eye lands there. */
 .stepcell.lime { animation: cell-glow 2.6s var(--ease) infinite; }
