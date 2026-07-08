@@ -964,7 +964,7 @@ h1 .brass {
   transition: all 0.4s var(--ease-out);
 }
 .vld-bidder-meta { display: flex; flex-direction: column; gap: 3px; }
-.vld-bidder-meta b { font-size: 13px; color: var(--text); font-family: var(--font-display); font-weight: 480; letter-spacing: -0.01em; }
+.vld-bidder-meta b { font-size: 13.5px; color: var(--text); font-family: var(--font-body); font-weight: 600; letter-spacing: 0.005em; }
 .vld-bidder-meta em { font-size: 9.5px; font-style: normal; letter-spacing: 0.08em; color: var(--muted-2); text-transform: uppercase; }
 .vld-bidder-state { grid-column: 2; font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); margin-top: 4px; }
 
@@ -1060,7 +1060,7 @@ h1 .brass {
 .vld-vtab:hover .vld-vtab-cred, .vld-vtab.sel .vld-vtab-cred { opacity: 1; }
 .vld-vtab-textcol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .vld-vtab-role { font-size: 8px; letter-spacing: 0.2em; color: var(--muted-2); }
-.vld-vtab-label { font-size: 12.5px; color: var(--text-dim); font-family: var(--font-display); font-weight: 460; letter-spacing: -0.01em; white-space: nowrap; }
+.vld-vtab-label { font-size: 13px; color: var(--text-dim); font-family: var(--font-body); font-weight: 600; letter-spacing: 0.005em; white-space: nowrap; }
 .vld-vtab.sel {
   border-color: var(--vaccent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--vaccent) 14%, transparent), transparent);
@@ -1617,7 +1617,7 @@ h1 .brass {
   transition: all 0.4s var(--ease-out);
 }
 .vld-bidder-meta { display: flex; flex-direction: column; gap: 3px; }
-.vld-bidder-meta b { font-size: 13px; color: var(--text); font-family: var(--font-display); font-weight: 480; letter-spacing: -0.01em; }
+.vld-bidder-meta b { font-size: 13.5px; color: var(--text); font-family: var(--font-body); font-weight: 600; letter-spacing: 0.005em; }
 .vld-bidder-meta em { font-size: 9.5px; font-style: normal; letter-spacing: 0.08em; color: var(--muted-2); text-transform: uppercase; }
 .vld-bidder-state { grid-column: 2; font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); margin-top: 4px; }
 
@@ -1713,7 +1713,7 @@ h1 .brass {
 .vld-vtab:hover .vld-vtab-cred, .vld-vtab.sel .vld-vtab-cred { opacity: 1; }
 .vld-vtab-textcol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .vld-vtab-role { font-size: 8px; letter-spacing: 0.2em; color: var(--muted-2); }
-.vld-vtab-label { font-size: 12.5px; color: var(--text-dim); font-family: var(--font-display); font-weight: 460; letter-spacing: -0.01em; white-space: nowrap; }
+.vld-vtab-label { font-size: 13px; color: var(--text-dim); font-family: var(--font-body); font-weight: 600; letter-spacing: 0.005em; white-space: nowrap; }
 .vld-vtab.sel {
   border-color: var(--vaccent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--vaccent) 14%, transparent), transparent);
