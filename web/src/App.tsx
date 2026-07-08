@@ -84,7 +84,7 @@ const RedactionCard = ({ margin }: { margin: number | null }) => (
   <article className="card card-redacted pop">
     <div className="card-kicker redacted-kicker">FINANCING TERMS</div>
     <div className="redaction-bar">
-      <span className="lock">⛔</span>
+      <span className="lock">⊘</span>
       <span className="redaction-strip" aria-hidden />
     </div>
     <div className="redacted-note">
