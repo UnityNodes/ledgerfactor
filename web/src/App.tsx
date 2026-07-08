@@ -2,162 +2,169 @@ import { useEffect, useRef, useState } from 'react';
 import { action, fetchViews } from './api';
 import { mountBackground } from './background';
 import { AuctionBoard } from './AuctionBoard';
-import { Contract, RoleView, ScoringResult } from './types';
+import { Contract, Recommendation, RoleView, ScoringResult } from './types';
 
 const money = (x: unknown): string =>
   '$' + Number(x ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
 const pct = (x: number): string => (x * 100).toFixed(2) + '%';
-const nodeId = (role: string): string =>
-  ({ supplier: 'node::spl', buyer: 'node::buy', financier: 'node::fin', auditor: 'node::adt' } as Record<string, string>)[role] ??
-  'node';
+const shortId = (p: string): string => (p.length > 20 ? p.slice(0, 12) + '…' + p.slice(-4) : p);
+
+const ROLE_META: Record<string, { tag: string; accent: string; blurb: string }> = {
+  supplier: { tag: 'SUPPLIER', accent: 'var(--teal)', blurb: 'issues & discounts the receivable' },
+  buyer: { tag: 'BUYER', accent: 'var(--slate)', blurb: 'confirms the payable' },
+  financier: { tag: 'FINANCIER', accent: 'var(--brass)', blurb: 'underwrites & funds' },
+  auditor: { tag: 'AUDITOR', accent: 'var(--muted)', blurb: 'observes the audit trail' },
+};
 
 const TENOR = 60;
 
 interface Step {
   key: string;
   label: string;
-  who: string;
   cta: string;
   note: string;
 }
 const STEPS: Step[] = [
-  { key: 'issue', label: 'Issue', who: 'Supplier', cta: 'Supplier issues the invoice',
-    note: 'The supplier creates the receivable on the ledger. It shows up on the Supplier and Buyer nodes. The Financier cannot see it yet.' },
-  { key: 'confirm', label: 'Confirm', who: 'Buyer', cta: 'Buyer confirms the payable',
+  { key: 'issue', label: 'Issue', cta: 'Supplier issues the invoice',
+    note: 'The supplier creates the receivable on the ledger. It shows up on the Supplier and Buyer nodes - the Financier cannot see it yet.' },
+  { key: 'confirm', label: 'Confirm', cta: 'Buyer confirms the payable',
     note: 'Only the buyer can approve. This is the buyer accepting that it owes this amount.' },
-  { key: 'list', label: 'List', who: 'Supplier', cta: 'Supplier lists it to the financier',
-    note: 'The supplier discloses the invoice to a chosen financier. Now, and only now, the financier node can read it, which is what lets the AI underwrite it.' },
-  { key: 'underwrite', label: 'AI underwrite', who: 'Financier', cta: 'AI agent underwrites the risk',
+  { key: 'list', label: 'List', cta: 'Supplier lists it to the financier',
+    note: 'The supplier discloses the invoice to a chosen financier. Now - and only now - the financier’s node can read it, which is what lets the AI underwrite it.' },
+  { key: 'underwrite', label: 'Underwrite', cta: 'AI agent underwrites the risk',
     note: 'The scoring agent reads the invoice the financier is entitled to see and recommends a discount rate and a decision.' },
-  { key: 'offer', label: 'Offer', who: 'Now', cta: 'Financier makes the offer',
-    note: 'Watch the four nodes. The margin card appears only on Supplier and Financier. Buyer and Auditor get a withheld bar. The ledger never sends the rate to their nodes.' },
-  { key: 'finance', label: 'Settle', who: 'Pending', cta: 'Financier funds, atomic DvP',
+  { key: 'offer', label: 'Offer', cta: 'Financier makes the offer',
+    note: '★ Watch the four columns. The MARGIN card appears only on Supplier and Financier. Buyer and Auditor get a redaction bar - the ledger never sends the rate to their nodes.' },
+  { key: 'finance', label: 'Settle', cta: 'Financier funds - atomic DvP',
     note: 'Cash to the supplier and the receivable to the financier, in one transaction. The original invoice is consumed, so it can never be financed twice. The auditor sees face value only.' },
 ];
 
-const STATUS_LABEL = ['Draft', 'Issued', 'Confirmed', 'Listed', 'Underwritten', 'Offer made', 'Settled'];
+const StatusPill = ({ status }: { status: string }) => (
+  <span className={`pill pill-${status.toLowerCase()}`}>{status}</span>
+);
 
-/* Deterministic hex for the withheld cipher scramble. */
-const HEXPOOL = 'AF3E9C1D0B7A4E2F8C6D5B1A9E3F7C2D0B8A6E4F1C9D3B7A5E2F8C6D4B0A9E3';
-const hexLine = (seed: number, len = 20): string => {
-  let out = '';
-  let x = (seed * 2654435761) >>> 0;
-  for (let i = 0; i < len; i++) {
-    x = (x * 1103515245 + 12345) >>> 0;
-    out += HEXPOOL[x % HEXPOOL.length];
-  }
-  return out;
+const InvoiceCard = ({ c }: { c: Contract }) => (
+  <article className="card enter">
+    <div className="card-kicker">RECEIVABLE · INVOICE</div>
+    <div className="card-title">{String(c.description)}</div>
+    <div className="figure">{money(c.amount)}</div>
+    <div className="card-foot">
+      <StatusPill status={String(c.status)} />
+      {c.financier ? <span className="tag tag-eye">listed to financier</span> : <span className="tag tag-dim">not yet listed</span>}
+    </div>
+  </article>
+);
+
+const OfferCard = ({ c }: { c: Contract }) => {
+  const face = Number(c.faceAmount);
+  const rate = Number(c.discountRate);
+  return (
+    <article className="card card-sensitive pop">
+      <div className="card-kicker">FINANCING OFFER · CONFIDENTIAL</div>
+      <div className="margin-row">
+        <span className="margin-label">MARGIN / DISCOUNT</span>
+        <span className="margin-value">{pct(rate)}</span>
+      </div>
+      <div className="split">
+        <div>
+          <div className="mini-label">ADVANCE TO SUPPLIER</div>
+          <div className="mini-value">{money(face * (1 - rate))}</div>
+        </div>
+        <div>
+          <div className="mini-label">FINANCIER SPREAD</div>
+          <div className="mini-value brass">{money(face * rate)}</div>
+        </div>
+      </div>
+      <div className="card-foot"><span className="tag tag-eye">disclosed: financier + supplier</span></div>
+    </article>
+  );
 };
 
-const Row = ({ label, value, accent }: { label: string; value: React.ReactNode; accent?: 'lilac' | 'ink' }) => (
-  <div className="noderow">
-    <span className="noderow-k">{label}</span>
-    <span className={`noderow-v ${accent ?? ''}`}>{value}</span>
-  </div>
-);
-
-const MarginReveal = ({ rate }: { rate: number }) => (
-  <div className="marginbox reveal">
-    <span className="ignite-ember" aria-hidden />
-    <span className="ignite-rake" aria-hidden />
-    <div className="marginbox-label">Financier margin</div>
-    <div className="marginbox-figure">
-      {(rate * 100).toFixed(2)}<span className="marginbox-pct">%</span>
+const RedactionCard = ({ margin }: { margin: number | null }) => (
+  <article className="card card-redacted pop">
+    <div className="card-kicker redacted-kicker">FINANCING TERMS</div>
+    <div className="redaction-bar">
+      <span className="lock">⛔</span>
+      <span className="redaction-strip" aria-hidden />
     </div>
-    <div className="marginbox-note">Visible to this node</div>
-  </div>
-);
-
-const MarginWithheld = () => (
-  <div className="marginbox withheld">
-    <div className="marginbox-label">Financier margin</div>
-    <div className="marginbox-cipher" aria-hidden>
-      {[0, 1, 2].map((r) => (
-        <span key={r} style={{ animationDelay: `${r * 0.13}s` }}>{hexLine(r * 17 + 5)}</span>
-      ))}
-      <span className="cipher-scan" />
+    <div className="redacted-note">
+      Withheld by the Canton ledger from this participant.
+      {margin != null && <span className="redacted-sub"> A {pct(margin)} margin exists on a contract this party is not a stakeholder of.</span>}
     </div>
-    <div className="marginbox-note">Withheld by the ledger</div>
-  </div>
+  </article>
 );
 
-const first = (arr?: Contract[]): Contract | undefined => (arr && arr.length ? arr[0] : undefined);
+const ReceivableCard = ({ c }: { c: Contract }) => (
+  <article className="card enter">
+    <div className="card-kicker">FINANCED RECEIVABLE · SETTLED</div>
+    <div className="card-title">{String(c.description)}</div>
+    <div className="figure">{money(c.faceAmount)}</div>
+    <div className="card-foot">
+      <span className="pill pill-settled">assigned to financier</span>
+      <span className="tag tag-dim">face value only</span>
+    </div>
+  </article>
+);
 
-const NodeCard = ({ view, margin, financierName }: { view: RoleView; margin: number | null; financierName: string }) => {
+const CashCard = ({ c }: { c: Contract }) => (
+  <article className="card card-cash enter">
+    <div className="card-kicker">CASH · MOCK SETTLEMENT</div>
+    <div className="figure brass">{money(c.amount)}</div>
+    <div className="card-foot"><span className="tag tag-dim">held on ledger</span></div>
+  </article>
+);
+
+const bandClass = (b: string) => `band band-${b.toLowerCase()}`;
+
+const ScoreCard = ({ rec }: { rec: Recommendation }) => {
+  const r = rec.result;
+  return (
+    <article className="card card-score enter">
+      <div className="card-kicker">AI UNDERWRITING · {rec.description.toUpperCase()}</div>
+      <div className="score-head">
+        <div className="score-num">{r.creditScore}<span className="score-den">/100</span></div>
+        <div className={bandClass(r.riskBand)}>{r.riskBand}</div>
+        <div className={`decision decision-${r.decision}`}>{r.decision}</div>
+      </div>
+      <div className="rate-line"><span>recommended discount</span><span className="rate-val">{pct(r.recommendedDiscountRate)}</span></div>
+      <div className="submeters">
+        {(['reliability', 'concentration', 'dilution', 'size'] as const).map((k) => (
+          <div className="submeter" key={k}>
+            <div className="submeter-label">{k}</div>
+            <div className="submeter-track"><div className="submeter-fill" style={{ width: `${r.subScores[k] * 100}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+};
+
+const Panel = ({ view, margin }: { view: RoleView; margin: number | null }) => {
+  const meta = ROLE_META[view.role];
   const g = view.groups;
-  const invoice = first(g.Invoice);
-  const offer = first(g.FinancingOffer);
-  const receivable = first(g.FinancedReceivable);
-  const cash = first(g.Cash);
-  const rec = view.recommendations?.[0];
+  const offers = g.FinancingOffer ?? [];
+  const seesOffer = offers.length > 0;
   const total = Object.values(g).reduce((n, arr) => n + arr.length, 0);
-  const seesMargin = offer != null;
-  const rate = offer ? Number(offer.discountRate) : margin;
-
-  const invoiceStatus =
-    receivable ? 'Settled' : invoice ? String(invoice.status ?? 'Open') : '·';
-  const faceAmount = Number(invoice?.amount ?? receivable?.faceAmount ?? 0);
-
-  let rows: React.ReactNode;
-  if (view.role === 'supplier') {
-    rows = (
-      <>
-        <Row label="Invoice" value={invoiceStatus} />
-        <Row label="Face value" value={faceAmount ? money(faceAmount).slice(1) : '·'} />
-        <Row label="Offer from" value={offer ? financierName : receivable ? 'Financed' : '·'} accent="ink" />
-      </>
-    );
-  } else if (view.role === 'buyer') {
-    rows = (
-      <>
-        <Row label="Invoice" value={invoiceStatus} />
-        <Row label="Obligation" value={faceAmount ? money(faceAmount).slice(1) : '·'} />
-        <Row label="Pay to" value={receivable || (invoice && invoice.financier) ? 'New holder, on due date' : 'Supplier'} accent="ink" />
-      </>
-    );
-  } else if (view.role === 'financier') {
-    const advance = rate != null && faceAmount ? faceAmount * (1 - rate) : null;
-    rows = (
-      <>
-        <Row label="Invoice" value={invoice || receivable ? invoiceStatus : 'Not listed'} />
-        <Row label="Advance" value={advance != null ? money(advance).slice(1) : '·'} />
-        <Row
-          label="Underwriting"
-          value={rec ? `AI approved, grade ${rec.result.riskBand}` : '·'}
-          accent="lilac"
-        />
-      </>
-    );
-  } else {
-    rows = (
-      <>
-        <Row label="Invoice exists" value={invoice || receivable ? 'Proven' : '·'} accent="lilac" />
-        <Row label="Financed once" value={receivable ? 'Proven' : offer ? 'In progress' : '·'} accent={receivable ? 'lilac' : undefined} />
-        <Row label="Parties" value="Verified" accent="ink" />
-      </>
-    );
-  }
 
   return (
-    <section className="nodecard">
-      <div className="nodecard-head">
-        <span className="nodecard-role">{view.role}</span>
-        <span className="nodecard-id">{nodeId(view.role)}</span>
+    <section className="panel" style={{ ['--accent' as string]: meta.accent }}>
+      <header className="panel-head">
+        <div className="panel-role">{meta.tag}</div>
+        <div className="panel-name">{view.displayName}</div>
+        <div className="panel-blurb">{meta.blurb}</div>
+        <div className="panel-party">{shortId(view.party)}</div>
+      </header>
+      <div className="panel-body">
+        {(g.Invoice ?? []).map((c) => <InvoiceCard key={c.contractId} c={c} />)}
+        {view.recommendations?.map((rec) => <ScoreCard key={rec.invoiceCid} rec={rec} />)}
+        {seesOffer
+          ? offers.map((c) => <OfferCard key={c.contractId} c={c} />)
+          : margin != null && <RedactionCard margin={margin} />}
+        {(g.FinancedReceivable ?? []).map((c) => <ReceivableCard key={c.contractId} c={c} />)}
+        {(g.Cash ?? []).map((c) => <CashCard key={c.contractId} c={c} />)}
+        {total === 0 && margin == null && <div className="empty">nothing on this node yet</div>}
       </div>
-      <div className="nodecard-name">{view.displayName}</div>
-      <div className="nodecard-rows">{rows}</div>
-      {cash && <div className="nodecard-cash">Cash held · {money(cash.amount)}</div>}
-      {seesMargin && rate != null ? (
-        <MarginReveal rate={rate} />
-      ) : margin != null ? (
-        <MarginWithheld />
-      ) : (
-        <div className="marginbox neutral">
-          <div className="marginbox-label">Financier margin</div>
-          <div className="marginbox-figure quiet">·</div>
-          <div className="marginbox-note">{total ? 'No offer yet' : 'No contracts yet'}</div>
-        </div>
-      )}
+      <footer className="panel-foot">{total} contract{total === 1 ? '' : 's'} on this participant’s node</footer>
     </section>
   );
 };
@@ -174,7 +181,6 @@ export const App = () => {
   const invoiceCid = useRef<string | null>(null);
   const offerCid = useRef<string | null>(null);
   const bgRef = useRef<HTMLCanvasElement | null>(null);
-
   useEffect(() => {
     if (!bgRef.current) return;
     return mountBackground(bgRef.current);
@@ -189,6 +195,13 @@ export const App = () => {
     const o = views?.find((v) => (v.groups.FinancingOffer ?? []).length > 0)?.groups.FinancingOffer?.[0];
     return o ? Number(o.discountRate) : null;
   })();
+
+  useEffect(() => {
+    if (stepIdx >= 5 && margin != null) {
+      const el = bgRef.current as (HTMLCanvasElement & { __routeMargin?: () => void }) | null;
+      el?.__routeMargin?.();
+    }
+  }, [stepIdx, margin]);
 
   const pause = (ms = 1400) => new Promise((r) => setTimeout(r, ms));
 
@@ -211,9 +224,9 @@ export const App = () => {
       offerCid.current = null;
       setUnderwrite(null);
       setStepIdx(0);
-      setError('The demo ledger changed (it restarted, or your session reset). Press the first step or Auto-play to run a fresh deal.');
+      setError('The demo ledger changed (it restarted, or your session reset). Press the first step or ▶▶ Auto-play to run a fresh deal.');
     } else {
-      setError('Action failed. ' + msg.replace(/^Error:\s*/, '').slice(0, 180));
+      setError('Action failed - ' + msg.replace(/^Error:\s*/, '').slice(0, 180));
     }
     await refresh();
   };
@@ -257,175 +270,105 @@ export const App = () => {
   const started = stepIdx > 0 || busy;
   const done = stepIdx >= STEPS.length;
   const current = STEPS[Math.min(stepIdx, STEPS.length - 1)];
-  const showSpotlight = stepIdx >= 5 && margin != null;
-  const statusLabel = STATUS_LABEL[Math.min(stepIdx, STATUS_LABEL.length - 1)];
+  const showDisclosureBanner = stepIdx >= 5 && margin != null;
 
   return (
     <>
-      <canvas className="bgfx" ref={bgRef} aria-hidden />
-      <div className="wrap">
-        {/* ============ MASTHEAD ============ */}
-        <header className="masthead">
-          <div className="masthead-l">
-            <div className="brand">
-              <span className="brand-diamond" />
-              <span className="brand-word">Ledger<span className="lime">Factor</span></span>
-            </div>
-            <span className="chip"><span className="live-dot" /> Canton sandbox · live</span>
-          </div>
-          <div className="masthead-r">Confidential by construction</div>
-        </header>
+    <canvas className="bgfx" ref={bgRef} aria-hidden />
+    <div className="app">
+      <header className="masthead">
+        <div className="brand-mark"><span className="live-dot" /> CANTON SANDBOX · LIVE</div>
+        <h1>Ledger<span className="brass">Factor</span></h1>
+        <p className="lede">
+          A supplier sells a buyer-approved invoice to a financier. Drive the deal below and watch the four
+          participant nodes side by side - the financier’s <b>margin is disclosed to only two of them</b>, enforced
+          by Canton, not by this page.
+        </p>
+        <div className="vld-modeswitch" role="tablist" aria-label="Demo mode">
+          <button role="tab" aria-selected={mode === 'direct'} className={mode === 'direct' ? 'on' : ''} onClick={() => setMode('direct')}>Direct financing</button>
+          <button role="tab" aria-selected={mode === 'auction'} className={mode === 'auction' ? 'on-rose' : ''} onClick={() => setMode('auction')}>Sealed auction · Veild</button>
+        </div>
+      </header>
 
-        {/* ============ HERO ============ */}
-        <section className="hero">
-          <div className="hero-grid">
-            <div>
-              <div className="kicker"><span className="kicker-tick" />Confidential invoice financing</div>
-              <h1 className="hero-title">
-                The price is private. <span className="lilac">The proof is in the ledger.</span>
-              </h1>
-              <p className="hero-lede">
-                A supplier sells a buyer-approved invoice to a financier. The financier discount rate is hidden from
-                the buyer by the Canton protocol, and the ledger structurally prevents the same invoice from being
-                financed twice.
-              </p>
-            </div>
-            <div className="hero-mode">
-              <div className="overline">Choose a mode</div>
-              <div className="modeswitch" role="tablist" aria-label="Demo mode">
-                <button role="tab" aria-selected={mode === 'direct'} className={mode === 'direct' ? 'on' : ''} onClick={() => setMode('direct')}>Direct financing</button>
-                <button role="tab" aria-selected={mode === 'auction'} className={mode === 'auction' ? 'on' : ''} onClick={() => setMode('auction')}>Veild sealed bid</button>
-              </div>
-              <div className="hero-mode-cap">
-                {mode === 'direct'
-                  ? 'A guided flow: issue, confirm, list, AI underwrite, offer, settle. One financier, one private price.'
-                  : 'A sealed bid auction: three financiers bid blind. The lowest bid wins on close.'}
-              </div>
-            </div>
-          </div>
-
-          <div className="guarantees">
-            <div className="guarantee"><span className="g-no">01</span><span>Margin withheld from the buyer, by protocol, not policy</span></div>
-            <div className="guarantee"><span className="g-no">02</span><span>One invoice, one financing. Double factoring is structurally impossible</span></div>
-            <div className="guarantee"><span className="g-no">03</span><span>Every party holds its own view. No party holds them all</span></div>
-          </div>
-        </section>
-
-        {mode === 'auction' ? <AuctionBoard /> : (
-          <section className="section">
-            <div className="section-head">
-              <div className="section-title"><span className="section-no">01</span><h2>Direct financing</h2></div>
-              <div className="section-note">Same invoice, four nodes, two different views. The moment below is the offer.</div>
-            </div>
-
-            {/* Control deck */}
-            <div className="deck">
-              <label className="field">
-                <span>Invoice amount</span>
-                <input type="number" value={amount} disabled={started} min={1000} step={1000}
-                  onChange={(e) => setAmount(Number(e.target.value))} />
-              </label>
-              <label className="field field-wide">
-                <span>Description</span>
-                <input type="text" value={description} disabled={started}
-                  onChange={(e) => setDescription(e.target.value)} />
-              </label>
-              <div className="deck-actions">
-                {!done && (
-                  <button className="btn btn-primary" onClick={next} disabled={busy}>
-                    {busy ? '…' : `${stepIdx + 1}. ${current.cta}`} <span className="arrow">▶</span>
-                  </button>
-                )}
-                {stepIdx === 0 && !busy && (
-                  <button className="btn btn-ghost" onClick={autoplay} disabled={busy}>▶▶ Auto-play</button>
-                )}
-                {(started || done) && (
-                  <button className="btn btn-ghost" onClick={reset} disabled={busy}>↺ Reset</button>
-                )}
-              </div>
-            </div>
-
-            {/* Step flow */}
-            <div className="stepflow">
-              {STEPS.map((s, i) => {
-                const state = i < stepIdx ? 'done' : i === stepIdx ? 'active' : 'pending';
-                return (
-                  <div key={s.key} className={`stepcell ${state} ${s.key === 'offer' && i === stepIdx ? 'lime' : ''}`}>
-                    <div className="stepcell-top">
-                      <span className="stepcell-dot" />
-                      <span className="stepcell-no">{String(i + 1).padStart(2, '0')}</span>
-                    </div>
-                    <div className="stepcell-label">{s.label}</div>
-                    <div className="stepcell-who">{i < stepIdx ? 'Done' : i === stepIdx ? (s.key === 'offer' ? 'Now' : s.who) : s.who}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Invoice bar */}
-            <div className="invoicebar">
-              <span className="mono">{description || 'Untitled receivable'}</span>
-              <span className="bar-sep" />
-              <span className="dim">Supplier <span className="dimmer">to</span> Buyer</span>
-              <span className="bar-sep" />
-              <span className="mono">{money(amount)}</span>
-              <span className="bar-sep" />
-              <span className="dim">Due in {TENOR} days</span>
-              <span className={`invoicebar-status ${stepIdx >= 5 ? 'lime' : ''}`}>{statusLabel}</span>
-            </div>
-
-            <p className="narration">
-              {stepIdx === 0 && !busy
-                ? 'Set an amount, then step through the deal, or hit Auto-play to watch the whole story narrate itself.'
-                : done ? 'Deal settled. The invoice is consumed (it can never be financed twice), the supplier is paid, and the auditor sees face value only. Hit Reset to run it again.'
-                : (STEPS[Math.max(0, stepIdx - 1)] ?? current).note}
-            </p>
-
-            {underwrite && (
-              <div className="uw-strip">
-                <span className="uw-badge">AI</span>
-                <b>{underwrite.result.creditScore}/100 · band {underwrite.result.riskBand} · {underwrite.result.decision}</b>
-                <span className="uw-rate">recommends {pct(underwrite.result.recommendedDiscountRate)}</span>
-                <span className="uw-memo">{underwrite.memo.split('\n')[0]}</span>
-              </div>
+      {mode === 'auction' ? <AuctionBoard /> : <>
+      <section className="deck">
+        <div className="deck-controls">
+          <label className="field">
+            <span>Invoice amount</span>
+            <input type="number" value={amount} disabled={started} min={1000} step={1000}
+              onChange={(e) => setAmount(Number(e.target.value))} />
+          </label>
+          <label className="field field-wide">
+            <span>Description</span>
+            <input type="text" value={description} disabled={started}
+              onChange={(e) => setDescription(e.target.value)} />
+          </label>
+          <div className="deck-actions">
+            {!done && (
+              <button className="btn btn-primary" onClick={next} disabled={busy}>
+                {busy ? '…' : `${stepIdx + 1}. ${current.cta}`} <span className="arrow">▶</span>
+              </button>
             )}
-
-            {showSpotlight && (
-              <div className="spotlight">
-                <span className="spot-tag">The money-shot</span>
-                <span className="spot-text">
-                  The <b className="lime">{pct(margin)}</b> margin is now on the ledger, but it only appears on the
-                  <b> Supplier</b> and <b> Financier</b> nodes. <b className="lilac">Buyer</b> and <b className="lilac">Auditor</b> get a
-                  withheld bar. Their nodes never received the rate.
-                </span>
-              </div>
+            {stepIdx === 0 && !busy && (
+              <button className="btn btn-ghost" onClick={autoplay} disabled={busy}>▶▶ Auto-play</button>
             )}
-
-            {error && <div className="error">{error}</div>}
-
-            {views && (
-              <div className="nodes">
-                {views.map((v) => (
-                  <NodeCard
-                    key={v.role}
-                    view={v}
-                    margin={margin}
-                    financierName={views.find((x) => x.role === 'financier')?.displayName ?? 'the financier'}
-                  />
-                ))}
-              </div>
+            {(started || done) && (
+              <button className="btn btn-ghost" onClick={reset} disabled={busy}>↺ Reset</button>
             )}
+          </div>
+        </div>
 
-            <div className="section-foot">Same invoice. Four nodes. Two different views</div>
-          </section>
+        <ol className="stepper">
+          {STEPS.map((s, i) => (
+            <li key={s.key} className={`step ${i < stepIdx ? 'done' : ''} ${i === stepIdx ? 'active' : ''}`}>
+              <span className="step-dot">{i < stepIdx ? '✓' : i + 1}</span>
+              <span className="step-label">{s.label}</span>
+            </li>
+          ))}
+        </ol>
+
+        <p className="narration">
+          {stepIdx === 0 && !busy
+            ? 'Set an amount, then step through the deal - or hit Auto-play to watch the whole story narrate itself.'
+            : done ? 'Deal settled. The invoice is consumed (it can never be financed twice), the supplier is paid, and the auditor sees face value only. Hit Reset to run it again.'
+            : (STEPS[Math.max(0, stepIdx - 1)] ?? current).note}
+        </p>
+
+        {underwrite && (
+          <div className="uw-strip">
+            <span className="uw-badge">AI</span>
+            <b>{underwrite.result.creditScore}/100 · band {underwrite.result.riskBand} · {underwrite.result.decision}</b>
+            <span className="uw-rate">recommends {pct(underwrite.result.recommendedDiscountRate)}</span>
+            <span className="uw-memo">{underwrite.memo.split('\n')[0]}</span>
+          </div>
         )}
+      </section>
 
-        {/* ============ FOOTER ============ */}
-        <footer className="colophon">
-          <span>LedgerFactor. Confidential invoice financing on Canton. Each node is a live query as that party.</span>
-          <button className="refresh" onClick={refresh} disabled={busy}>↻ re-query</button>
-        </footer>
-      </div>
+      {showDisclosureBanner && (
+        <div className="spotlight">
+          <span className="spot-tag">🔒 THE MONEY-SHOT</span>
+          <span className="spot-text">
+            The <b className="brass">{pct(margin)}</b> margin is now on the ledger - but it only appears in the
+            <b> Supplier</b> and <b> Financier</b> columns. <b className="rose">Buyer</b> and <b className="rose">Auditor</b> get a
+            redaction bar; their nodes never received the rate.
+          </span>
+        </div>
+      )}
+
+      {error && <div className="error">{error}</div>}
+
+      {views && (
+        <main className="grid">
+          {views.map((v) => <Panel key={v.role} view={v} margin={margin} />)}
+        </main>
+      )}
+
+      <footer className="colophon">
+        <span>Daml · Canton · JSON Ledger API - each column is a live query as that party</span>
+        <button className="refresh" onClick={refresh} disabled={busy}>↻ re-query</button>
+      </footer>
+      </>}
+    </div>
     </>
   );
 };
