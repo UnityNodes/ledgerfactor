@@ -178,8 +178,8 @@ app.get('/api/view/:role', async (req, res) => {
 
 app.post('/api/score', async (req, res) => {
   const { amount, tenorDays, buyer, priorBook } = req.body ?? {};
-  if (typeof amount !== 'number' || typeof tenorDays !== 'number') {
-    return res.status(400).json({ error: 'amount and tenorDays (numbers) required' });
+  if (typeof amount !== 'number' || typeof tenorDays !== 'number' || !(amount > 0) || !(tenorDays > 0)) {
+    return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
   }
   const result = scoreFor(amount, tenorDays, buyer ?? DISPLAY.buyer, num(priorBook));
   res.json({ result, memo: await explainScore(result) });
@@ -218,8 +218,12 @@ app.post('/api/actions/list', async (req, res) => {
 
 app.post('/api/actions/underwrite', async (req, res) => {
   try {
-    const { amount, tenorDays } = req.body ?? {};
-    const result = scoreFor(Number(amount), Number(tenorDays ?? DEFAULT_TENOR), DISPLAY.buyer, 0);
+    const amount = Number(req.body?.amount);
+    const tenorDays = Number(req.body?.tenorDays ?? DEFAULT_TENOR);
+    if (!(amount > 0) || !(tenorDays > 0)) {
+      return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
+    }
+    const result = scoreFor(amount, tenorDays, DISPLAY.buyer, 0);
     res.json({ result, memo: await explainScore(result) });
   } catch (e) { fail(res, e); }
 });
@@ -396,11 +400,12 @@ app.post('/api/auction/reset', async (req, res) => {
       await archiveAs(b.party, 'FinancedReceivable');
       await archiveAs(b.party, 'Cash');
     }
+    await archiveAs(p.supplier, 'Cash');
     res.json({ ok: true });
   } catch (e) { fail(res, e); }
 });
 
-app.listen(PORT, () => {
-  console.log(`[server] listening on :${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`[server] listening on 127.0.0.1:${PORT}`);
   bootstrap();
 });
