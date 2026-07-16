@@ -65,11 +65,17 @@ daml/Tests.daml:testNoDoubleFinancing:   ok, 5 active contracts, 11 transactions
 daml/Tests.daml:testHappyPathSettlement: ok, 3 active contracts, 7 transactions.
 ```
 
-The same disclosure is verifiable live: query the running gateway as each party and
-only supplier + financier see the discount rate.
+The same disclosure is verifiable live: seed one demo session, then query the running
+gateway as each party. Only supplier + financier see the discount rate.
 
 ```bash
-for r in supplier buyer financier auditor; do curl -s localhost:8080/api/view/$r; done
+S=demo-$RANDOM
+curl -s -X POST localhost:8080/api/actions/sample -H "x-lf-session: $S" >/dev/null
+for r in supplier buyer financier auditor; do
+  rate=$(curl -s "localhost:8080/api/view/$r" -H "x-lf-session: $S" | grep -o '"discountRate":"[0-9.]*"' | head -1)
+  echo "$r: ${rate:-no discount rate disclosed}"
+done
+# supplier + financier print the rate; buyer + auditor print "no discount rate disclosed"
 ```
 
 ## The AI credit-scoring agent
@@ -132,3 +138,7 @@ the reveal.
 - [x] **Veild** - sealed-bid auction mode (multi-financier blind auction)
 - [ ] Real token-standard DvP settlement (stretch)
 - [ ] Runtime compliance citation via CCPEDIA MCP in the auditor view (stretch)
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
