@@ -6,8 +6,10 @@ protocol**, and the ledger **structurally** guarantees one invoice can never be
 financed twice. An AI agent underwrites the receivable over only the data the
 financier is entitled to see.
 
-Built for HackCanton S2 - Track 2 (Financial Applications) + Track 1 (RWA &
-Business Workflows). Business brief: [docs/business-brief.md](docs/business-brief.md).
+Built for HackCanton S2, track **Real-World Asset (RWA) & Business Workflows**: the
+invoice is the asset, and the demo runs its full lifecycle (issuance, state changes,
+transfer, fulfillment, audit) as a workflow an organization could actually run.
+Business brief: [docs/business-brief.md](docs/business-brief.md).
 
 **Live:** https://ledgerfactor.unitynodes.com - an interactive guided demo: create an
 invoice and step it through issue → confirm → list → AI-underwrite → offer → settle,
