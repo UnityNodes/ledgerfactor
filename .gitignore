@@ -6,3 +6,7 @@ node_modules/
 .playwright-mcp/
 log/
 /*.png
+
+# internal working material, not for the public repo
+docs/research/
+docs/design/
