@@ -7,6 +7,14 @@ node_modules/
 log/
 /*.png
 
+# editor backups and local secrets
+*.bak
+*.bak-*
+.env
+.env.*
+*.pem
+*.key
+
 # internal working material, not for the public repo
 docs/research/
 docs/design/
