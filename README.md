@@ -60,9 +60,11 @@ as its own party:
   at 3%, original receivable gone, auditor sees face value only.
 
 ```
+daml/Tests.daml:setupParties: ok, 0 active contracts, 0 transactions.
 daml/Tests.daml:testSelectiveDisclosure: ok, 2 active contracts, 4 transactions.
-daml/Tests.daml:testNoDoubleFinancing:   ok, 5 active contracts, 11 transactions.
+daml/Tests.daml:testNoDoubleFinancing: ok, 5 active contracts, 11 transactions.
 daml/Tests.daml:testHappyPathSettlement: ok, 3 active contracts, 7 transactions.
+daml/Tests.daml:testSealedBidAuction: ok, 6 active contracts, 12 transactions.
 ```
 
 The same disclosure is verifiable live: seed one demo session, then query the running
