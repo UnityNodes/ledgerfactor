@@ -180,6 +180,7 @@ export const App = () => {
   const [underwrite, setUnderwrite] = useState<{ result: ScoringResult; memo: string } | null>(null);
   const invoiceCid = useRef<string | null>(null);
   const offerCid = useRef<string | null>(null);
+  const underwriteRef = useRef<{ result: ScoringResult; memo: string } | null>(null);
   const bgRef = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     if (!bgRef.current) return;
@@ -209,9 +210,14 @@ export const App = () => {
     if (key === 'issue') { const r = await action('invoice', { amount, description }); invoiceCid.current = r.invoiceCid; }
     else if (key === 'confirm') { const r = await action('confirm', { invoiceCid: invoiceCid.current }); invoiceCid.current = r.invoiceCid; }
     else if (key === 'list') { const r = await action('list', { invoiceCid: invoiceCid.current }); invoiceCid.current = r.invoiceCid; }
-    else if (key === 'underwrite') { setUnderwrite(await action('underwrite', { amount, tenorDays: TENOR })); }
+    else if (key === 'underwrite') {
+      const r = await action('underwrite', { amount, tenorDays: TENOR });
+      underwriteRef.current = r;
+      setUnderwrite(r);
+    }
     else if (key === 'offer') {
-      const rate = underwrite?.result.recommendedDiscountRate ?? 0.02;
+      const rate = underwriteRef.current?.result.recommendedDiscountRate;
+      if (rate == null) throw new Error('the AI underwriting step must run before the offer');
       const r = await action('offer', { invoiceCid: invoiceCid.current, faceAmount: amount, discountRate: rate });
       offerCid.current = r.offerCid;
     } else if (key === 'finance') { await action('finance', { offerCid: offerCid.current, faceAmount: amount }); }
@@ -222,6 +228,7 @@ export const App = () => {
     if (/CONTRACT_NOT_FOUND|404|not ready|not found/i.test(msg)) {
       invoiceCid.current = null;
       offerCid.current = null;
+      underwriteRef.current = null;
       setUnderwrite(null);
       setStepIdx(0);
       setError('The demo ledger changed (it restarted, or your session reset). Press the first step or ▶▶ Auto-play to run a fresh deal.');
@@ -243,7 +250,7 @@ export const App = () => {
     setBusy(true);
     try {
       await action('reset');
-      invoiceCid.current = null; offerCid.current = null;
+      invoiceCid.current = null; offerCid.current = null; underwriteRef.current = null;
       setUnderwrite(null); setStepIdx(0); setError(null);
       await refresh();
     } finally { setBusy(false); }
@@ -254,7 +261,8 @@ export const App = () => {
     setError(null);
     try {
       await action('reset');
-      invoiceCid.current = null; offerCid.current = null; setUnderwrite(null); setStepIdx(0);
+      invoiceCid.current = null; offerCid.current = null; underwriteRef.current = null;
+      setUnderwrite(null); setStepIdx(0);
       await refresh();
       await pause(900);
       for (let i = 0; i < STEPS.length; i++) {
