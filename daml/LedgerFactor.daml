@@ -75,6 +75,8 @@ template FinancingOffer
       do
         inv <- fetch invoiceCid
         assertMsg "supplier mismatch" (inv.supplier == supplier)
+        assertMsg "buyer mismatch" (inv.buyer == buyer)
+        assertMsg "face amount must equal the confirmed invoice amount" (faceAmount == inv.amount)
         assertMsg "buyer must confirm before financing" (inv.status == Confirmed)
         archive invoiceCid
         let advance = faceAmount * (1.0 - discountRate)

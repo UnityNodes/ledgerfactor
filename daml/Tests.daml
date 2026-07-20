@@ -160,3 +160,19 @@ testSealedBidAuction = do
   cash2 <- submit apex do createCmd Cash with owner = apex, amount = 100000.0
   offer2 <- submit p.supplier do exerciseCmd b2 AcceptProposal
   submitMustFail apex do exerciseCmd offer2 AcceptFinancing with financierCashCid = cash2
+
+testFaceAmountMustMatchInvoice : Script ()
+testFaceAmountMustMatchInvoice = do
+  p <- setupParties
+  invoiceCid <- listedInvoice p 100000.0 "Q3 pallets"
+
+  inflatedOffer <- makeOffer p invoiceCid 500000.0 0.03
+  bigCash <- submit p.financier do createCmd Cash with owner = p.financier, amount = 500000.0
+  submitMustFail p.financier do exerciseCmd inflatedOffer AcceptFinancing with financierCashCid = bigCash
+
+  honestOffer <- makeOffer p invoiceCid 100000.0 0.03
+  goodCash <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  _ <- submit p.financier do exerciseCmd honestOffer AcceptFinancing with financierCashCid = goodCash
+
+  receivables <- query @FinancedReceivable p.auditor
+  assertMsg "the auditor only ever sees the true 100,000 face value" (all (\(_, r) -> r.faceAmount == 100000.0) receivables)
