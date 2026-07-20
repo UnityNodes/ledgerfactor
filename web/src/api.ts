@@ -41,7 +41,12 @@ const post = async (path: string, body: object): Promise<any> => {
     headers: { 'Content-Type': 'application/json', ...H },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${path} -> ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { const j = JSON.parse(text); if (j && typeof j.error === 'string') msg = j.error; } catch { /* keep text */ }
+    throw new Error(msg);
+  }
   return res.json();
 };
 

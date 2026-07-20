@@ -419,6 +419,9 @@ app.post('/api/auction/reset', async (req, res) => {
       await archiveAs(b.party, 'Cash');
     }
     await archiveAs(p.financier, 'FinancingProposal');
+    for (const c of await ledger.query(p.financier, ['FinancingOffer'])) {
+      try { await ledger.exerciseMulti([p.financier, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+    }
     await archiveAs(p.financier, 'FinancedReceivable');
     await archiveAs(p.financier, 'Cash');
     await archiveAs(p.supplier, 'Cash');
