@@ -429,6 +429,12 @@ app.post('/api/auction/reset', async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[http]', err && err.message ? err.message : err);
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'invalid JSON body' });
+  res.status(500).json({ error: 'internal error' });
+});
+
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`[server] listening on 127.0.0.1:${PORT}`);
   bootstrap();
