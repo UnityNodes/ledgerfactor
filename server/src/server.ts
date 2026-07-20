@@ -134,7 +134,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const fail = (res: express.Response, e: unknown) => res.status(500).json({ error: String(e) });
+const fail = (res: express.Response, e: unknown) => {
+  const raw = String(e);
+  console.error('[ledger]', raw);
+  const stale = /CONTRACT_NOT_FOUND|NOT_FOUND|not found/i.test(raw);
+  res.status(stale ? 409 : 500).json({ error: stale ? 'CONTRACT_NOT_FOUND: the demo ledger moved on, reset to run a fresh deal' : 'ledger operation failed' });
+};
+
+const positiveAmount = (v: unknown): boolean => v === undefined || Number(v) > 0;
 
 app.get('/api/health', (_req, res) => {
   res.json({ ready, bootError, sessions: sessions.size });
@@ -190,6 +197,7 @@ app.post('/api/actions/invoice', async (req, res) => {
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
     const { amount, description } = req.body ?? {};
+    if (!positiveAmount(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
     const inv = await ledger.create(p.supplier, 'Invoice', {
       supplier: p.supplier, buyer: p.buyer, financiers: [],
       amount: String(amount ?? 100000), description: description || 'New receivable', status: 'Issued',
@@ -255,7 +263,8 @@ app.post('/api/actions/finance', async (req, res) => {
 
 app.post('/api/actions/reset', async (req, res) => {
   try {
-    const p = await sessionParties(sidOf(req), false);
+    const sid = sidOf(req);
+    const p = await sessionParties(sid, false);
     if (!p) return res.json({ ok: true });
     const archive = async (party: string, entity: string) => {
       for (const c of await ledger.query(party, [entity])) {
@@ -270,6 +279,14 @@ app.post('/api/actions/reset', async (req, res) => {
     await archive(p.financier, 'FinancedReceivable');
     await archive(p.supplier, 'Cash');
     await archive(p.financier, 'Cash');
+    for (const b of (await sessionBidders(sid, false)) ?? []) {
+      await archive(b.party, 'FinancingProposal');
+      for (const c of await ledger.query(b.party, ['FinancingOffer'])) {
+        try { await ledger.exerciseMulti([b.party, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+      await archive(b.party, 'FinancedReceivable');
+      await archive(b.party, 'Cash');
+    }
     res.json({ ok: true });
   } catch (e) { fail(res, e); }
 });
@@ -290,6 +307,7 @@ app.post('/api/auction/open', async (req, res) => {
     const bidders = await sessionBidders(sid, true);
     if (!p || !bidders) return res.status(503).json({ error: 'not ready' });
     const { amount, description } = req.body ?? {};
+    if (!positiveAmount(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
     const inv = await ledger.create(p.supplier, 'Invoice', {
       supplier: p.supplier, buyer: p.buyer, financiers: [],
       amount: String(amount ?? 100000), description: description || 'Auction receivable', status: 'Issued',
@@ -400,6 +418,9 @@ app.post('/api/auction/reset', async (req, res) => {
       await archiveAs(b.party, 'FinancedReceivable');
       await archiveAs(b.party, 'Cash');
     }
+    await archiveAs(p.financier, 'FinancingProposal');
+    await archiveAs(p.financier, 'FinancedReceivable');
+    await archiveAs(p.financier, 'Cash');
     await archiveAs(p.supplier, 'Cash');
     res.json({ ok: true });
   } catch (e) { fail(res, e); }
