@@ -26,10 +26,11 @@ Three guarantees are enforced by the ledger, not by the UI:
    `FinancingProposal` / `FinancingOffer`, whose only stakeholders are the
    financier and supplier. The buyer is never a stakeholder, so the margin never
    reaches the buyer's participant node.
-2. **Single-financing uniqueness (anti-double-pledge).** `AcceptFinancing` consumes
-   the invoice, and the resulting `FinancedReceivable` carries a ledger-enforced
-   unique key on the invoice identity `(supplier, invoice)`. So the same receivable
-   cannot be financed twice, even if the supplier re-issues it as a second contract.
+2. **Single-financing uniqueness (anti-double-pledge).** Confirming an invoice
+   creates a `BuyerAttestation` the buyer co-signs, keyed on `(supplier, invoiceNumber)`.
+   The same number can be attested, and therefore financed, only once, and financing
+   an invoice the buyer never attested is rejected at the ledger. So one receivable
+   can never be financed twice and a confirmation cannot be forged.
 3. **Atomic DvP.** Assigning the receivable and paying the supplier the discounted
    cash settle in a single transaction.
 
@@ -57,20 +58,22 @@ as its own party:
   `FinancingProposal` and gets **nothing**; financier and supplier see the margin.
 - `testNoDoubleFinancing` - two offers on one invoice; the first `AcceptFinancing`
   consumes it, the second is **rejected by the ledger**.
-- `testNoDoublePledgeAcrossContracts` - the same invoice re-issued as two separate
-  contracts; the second financing is **rejected by the unique key**, so one
-  receivable is only ever financed once.
+- `testNoDoublePledgeAcrossContracts` - the same invoice number re-issued as a second
+  contract; the buyer **cannot attest it again**, so it can never be financed twice.
+- `testForgedConfirmationCannotFinance` - a supplier-forged `Confirmed` invoice with no
+  buyer attestation is **rejected**; financing needs the buyer's signed acknowledgement.
 - `testHappyPathSettlement` - atomic DvP: supplier paid 97,000 on a 100,000 invoice
   at 3%, original receivable gone, auditor sees face value only.
 
 ```
 daml/Tests.daml:setupParties: ok, 0 active contracts, 0 transactions.
-daml/Tests.daml:testSelectiveDisclosure: ok, 2 active contracts, 4 transactions.
-daml/Tests.daml:testNoDoubleFinancing: ok, 5 active contracts, 11 transactions.
-daml/Tests.daml:testNoDoublePledgeAcrossContracts: ok, 6 active contracts, 14 transactions.
-daml/Tests.daml:testFaceAmountMustMatchInvoice: ok, 5 active contracts, 11 transactions.
-daml/Tests.daml:testHappyPathSettlement: ok, 3 active contracts, 7 transactions.
-daml/Tests.daml:testSealedBidAuction: ok, 6 active contracts, 12 transactions.
+daml/Tests.daml:testSelectiveDisclosure: ok, 3 active contracts, 4 transactions.
+daml/Tests.daml:testNoDoubleFinancing: ok, 6 active contracts, 11 transactions.
+daml/Tests.daml:testNoDoublePledgeAcrossContracts: ok, 5 active contracts, 9 transactions.
+daml/Tests.daml:testForgedConfirmationCannotFinance: ok, 2 active contracts, 3 transactions.
+daml/Tests.daml:testFaceAmountMustMatchInvoice: ok, 6 active contracts, 11 transactions.
+daml/Tests.daml:testHappyPathSettlement: ok, 4 active contracts, 7 transactions.
+daml/Tests.daml:testSealedBidAuction: ok, 6 active contracts, 10 transactions.
 ```
 
 The same disclosure is verifiable live: seed one demo session, then query the running

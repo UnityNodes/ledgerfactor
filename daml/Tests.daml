@@ -26,6 +26,7 @@ confirmedInvoice p amount description = do
       buyer = p.buyer
       financiers = []
       amount
+      invoiceNumber = description
       description
       status = Issued
   submit p.buyer do exerciseCmd iid Confirm
@@ -128,6 +129,7 @@ testSealedBidAuction = do
       buyer = p.buyer
       financiers = []
       amount = 100000.0
+      invoiceNumber = "Q3 pallets"
       description = "Q3 pallets"
       status = Issued
   confirmed <- submit p.buyer do exerciseCmd iid Confirm
@@ -157,9 +159,7 @@ testSealedBidAuction = do
   winnerReceivable <- query @FinancedReceivable p.auditor
   assertMsg "the winning bid settles; auditor sees the financed receivable" (length winnerReceivable == 1)
 
-  cash2 <- submit apex do createCmd Cash with owner = apex, amount = 100000.0
-  offer2 <- submit p.supplier do exerciseCmd b2 AcceptProposal
-  submitMustFail apex do exerciseCmd offer2 AcceptFinancing with financierCashCid = cash2
+  submitMustFail p.supplier do exerciseCmd b2 AcceptProposal
 
 testFaceAmountMustMatchInvoice : Script ()
 testFaceAmountMustMatchInvoice = do
@@ -186,10 +186,39 @@ testNoDoublePledgeAcrossContracts = do
   cash1 <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
   _ <- submit p.financier do exerciseCmd offer1 AcceptFinancing with financierCashCid = cash1
 
-  inv2 <- listedInvoice p 100000.0 "INV-777"
-  offer2 <- makeOffer p inv2 100000.0 0.03
-  cash2 <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
-  submitMustFail p.financier do exerciseCmd offer2 AcceptFinancing with financierCashCid = cash2
+  iid2 <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financiers = []
+      amount = 100000.0
+      invoiceNumber = "INV-777"
+      description = "INV-777"
+      status = Issued
+  submitMustFail p.buyer do exerciseCmd iid2 Confirm
 
   settled <- query @FinancedReceivable p.auditor
   assertMsg "the same invoice yields exactly one financed receivable, never two" (length settled == 1)
+
+testForgedConfirmationCannotFinance : Script ()
+testForgedConfirmationCannotFinance = do
+  p <- setupParties
+  iid <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financiers = [p.financier]
+      amount = 100000.0
+      invoiceNumber = "FORGED-1"
+      description = "FORGED-1"
+      status = Confirmed
+  prop <- submit p.financier do
+    createCmd FinancingProposal with
+      financier = p.financier
+      supplier = p.supplier
+      buyer = p.buyer
+      auditor = p.auditor
+      invoiceCid = iid
+      faceAmount = 100000.0
+      discountRate = 0.03
+  submitMustFail p.supplier do exerciseCmd prop AcceptProposal

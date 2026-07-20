@@ -11,6 +11,7 @@ template Invoice
     buyer : Party
     financiers : [Party]
     amount : Decimal
+    invoiceNumber : Text
     description : Text
     status : InvoiceStatus
   where
@@ -20,13 +21,25 @@ template Invoice
 
     choice Confirm : ContractId Invoice
       controller buyer
-      do create this with status = Confirmed
+      do
+        _ <- create BuyerAttestation with supplier, buyer, invoiceNumber
+        create this with status = Confirmed
 
     choice ListForFinancing : ContractId Invoice
       with
         newFinanciers : [Party]
       controller supplier
       do create this with financiers = newFinanciers
+
+template BuyerAttestation
+  with
+    supplier : Party
+    buyer : Party
+    invoiceNumber : Text
+  where
+    signatory buyer, supplier
+    key (supplier, invoiceNumber) : (Party, Text)
+    maintainer key._1
 
 template Cash
   with
@@ -43,11 +56,12 @@ template FinancedReceivable
     buyer : Party
     auditor : Party
     faceAmount : Decimal
+    invoiceNumber : Text
     description : Text
   where
     signatory financier, supplier
     observer buyer, auditor
-    key (supplier, description) : (Party, Text)
+    key (supplier, invoiceNumber) : (Party, Text)
     maintainer key._1
 
 data FinancingResult = FinancingResult
@@ -94,6 +108,7 @@ template FinancingOffer
           buyer
           auditor
           faceAmount
+          invoiceNumber = inv.invoiceNumber
           description = inv.description
         pure FinancingResult with receivable, supplierCash, financierChange
 
@@ -114,6 +129,8 @@ template FinancingProposal
     choice AcceptProposal : ContractId FinancingOffer
       controller supplier
       do
+        inv <- fetch invoiceCid
+        _ <- fetchByKey @BuyerAttestation (supplier, inv.invoiceNumber)
         create FinancingOffer with
           financier
           supplier
