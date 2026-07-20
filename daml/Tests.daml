@@ -176,3 +176,20 @@ testFaceAmountMustMatchInvoice = do
 
   receivables <- query @FinancedReceivable p.auditor
   assertMsg "the auditor only ever sees the true 100,000 face value" (all (\(_, r) -> r.faceAmount == 100000.0) receivables)
+
+testNoDoublePledgeAcrossContracts : Script ()
+testNoDoublePledgeAcrossContracts = do
+  p <- setupParties
+
+  inv1 <- listedInvoice p 100000.0 "INV-777"
+  offer1 <- makeOffer p inv1 100000.0 0.03
+  cash1 <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  _ <- submit p.financier do exerciseCmd offer1 AcceptFinancing with financierCashCid = cash1
+
+  inv2 <- listedInvoice p 100000.0 "INV-777"
+  offer2 <- makeOffer p inv2 100000.0 0.03
+  cash2 <- submit p.financier do createCmd Cash with owner = p.financier, amount = 100000.0
+  submitMustFail p.financier do exerciseCmd offer2 AcceptFinancing with financierCashCid = cash2
+
+  settled <- query @FinancedReceivable p.auditor
+  assertMsg "the same invoice yields exactly one financed receivable, never two" (length settled == 1)

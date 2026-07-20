@@ -45,8 +45,10 @@ template FinancedReceivable
     faceAmount : Decimal
     description : Text
   where
-    signatory financier
+    signatory financier, supplier
     observer buyer, auditor
+    key (supplier, description) : (Party, Text)
+    maintainer key._1
 
 data FinancingResult = FinancingResult
   with

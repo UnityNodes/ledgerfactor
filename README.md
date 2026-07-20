@@ -26,9 +26,10 @@ Three guarantees are enforced by the ledger, not by the UI:
    `FinancingProposal` / `FinancingOffer`, whose only stakeholders are the
    financier and supplier. The buyer is never a stakeholder, so the margin never
    reaches the buyer's participant node.
-2. **Single-exercise uniqueness (anti-double-pledge).** The `Invoice` is one
-   authoritative contract; `AcceptFinancing` is a *consuming* choice, so a second
-   financing attempt on the same invoice is rejected at the ledger.
+2. **Single-financing uniqueness (anti-double-pledge).** `AcceptFinancing` consumes
+   the invoice, and the resulting `FinancedReceivable` carries a ledger-enforced
+   unique key on the invoice identity `(supplier, invoice)`. So the same receivable
+   cannot be financed twice, even if the supplier re-issues it as a second contract.
 3. **Atomic DvP.** Assigning the receivable and paying the supplier the discounted
    cash settle in a single transaction.
 
@@ -56,6 +57,9 @@ as its own party:
   `FinancingProposal` and gets **nothing**; financier and supplier see the margin.
 - `testNoDoubleFinancing` - two offers on one invoice; the first `AcceptFinancing`
   consumes it, the second is **rejected by the ledger**.
+- `testNoDoublePledgeAcrossContracts` - the same invoice re-issued as two separate
+  contracts; the second financing is **rejected by the unique key**, so one
+  receivable is only ever financed once.
 - `testHappyPathSettlement` - atomic DvP: supplier paid 97,000 on a 100,000 invoice
   at 3%, original receivable gone, auditor sees face value only.
 
@@ -63,6 +67,7 @@ as its own party:
 daml/Tests.daml:setupParties: ok, 0 active contracts, 0 transactions.
 daml/Tests.daml:testSelectiveDisclosure: ok, 2 active contracts, 4 transactions.
 daml/Tests.daml:testNoDoubleFinancing: ok, 5 active contracts, 11 transactions.
+daml/Tests.daml:testNoDoublePledgeAcrossContracts: ok, 6 active contracts, 14 transactions.
 daml/Tests.daml:testFaceAmountMustMatchInvoice: ok, 5 active contracts, 11 transactions.
 daml/Tests.daml:testHappyPathSettlement: ok, 3 active contracts, 7 transactions.
 daml/Tests.daml:testSealedBidAuction: ok, 6 active contracts, 12 transactions.

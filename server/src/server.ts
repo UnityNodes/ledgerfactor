@@ -272,11 +272,16 @@ app.post('/api/actions/reset', async (req, res) => {
       }
     };
     await archive(p.supplier, 'Invoice');
+    const archiveReceivables = async (owner: string) => {
+      for (const c of await ledger.query(owner, ['FinancedReceivable'])) {
+        try { await ledger.exerciseMulti([owner, p.supplier], 'FinancedReceivable', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+    };
     await archive(p.financier, 'FinancingProposal');
     for (const c of await ledger.query(p.financier, ['FinancingOffer'])) {
       try { await ledger.exerciseMulti([p.financier, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
     }
-    await archive(p.financier, 'FinancedReceivable');
+    await archiveReceivables(p.financier);
     await archive(p.supplier, 'Cash');
     await archive(p.financier, 'Cash');
     for (const b of (await sessionBidders(sid, false)) ?? []) {
@@ -284,7 +289,7 @@ app.post('/api/actions/reset', async (req, res) => {
       for (const c of await ledger.query(b.party, ['FinancingOffer'])) {
         try { await ledger.exerciseMulti([b.party, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
       }
-      await archive(b.party, 'FinancedReceivable');
+      await archiveReceivables(b.party);
       await archive(b.party, 'Cash');
     }
     res.json({ ok: true });
@@ -409,20 +414,25 @@ app.post('/api/auction/reset', async (req, res) => {
         try { await ledger.exercise(party, entity, c.contractId, 'Archive', {}); } catch { /* ignore */ }
       }
     };
+    const archiveReceivables = async (owner: string) => {
+      for (const c of await ledger.query(owner, ['FinancedReceivable'])) {
+        try { await ledger.exerciseMulti([owner, p.supplier], 'FinancedReceivable', c.contractId, 'Archive', {}); } catch { /* ignore */ }
+      }
+    };
     await archiveAs(p.supplier, 'Invoice');
     for (const b of bidders ?? []) {
       await archiveAs(b.party, 'FinancingProposal');
       for (const c of await ledger.query(b.party, ['FinancingOffer'])) {
         try { await ledger.exerciseMulti([b.party, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
       }
-      await archiveAs(b.party, 'FinancedReceivable');
+      await archiveReceivables(b.party);
       await archiveAs(b.party, 'Cash');
     }
     await archiveAs(p.financier, 'FinancingProposal');
     for (const c of await ledger.query(p.financier, ['FinancingOffer'])) {
       try { await ledger.exerciseMulti([p.financier, p.supplier], 'FinancingOffer', c.contractId, 'Archive', {}); } catch { /* ignore */ }
     }
-    await archiveAs(p.financier, 'FinancedReceivable');
+    await archiveReceivables(p.financier);
     await archiveAs(p.financier, 'Cash');
     await archiveAs(p.supplier, 'Cash');
     res.json({ ok: true });
