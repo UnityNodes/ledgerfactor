@@ -16,7 +16,7 @@ invoice and step it through issue → confirm → list → AI-underwrite → off
 watching the four party views update live. Persistent systemd services behind
 Caddy + Cloudflare; see [docs/deploy.md](docs/deploy.md).
 
-![The offer step - the 1.97% margin appears only on the Supplier and Financier nodes; Buyer and Auditor get a redaction bar](docs/demo-four-screens.png)
+![The offer step - the 1.97% margin appears only on the Supplier and Financier views; Buyer and Auditor get a redaction bar](docs/demo-four-screens.png)
 
 ## Why this runs only on Canton
 
@@ -25,7 +25,7 @@ Three guarantees are enforced by the ledger, not by the UI:
 1. **Selective disclosure (margin privacy).** The discount rate lives on
    `FinancingProposal` / `FinancingOffer`, whose only stakeholders are the
    financier and supplier. The buyer is never a stakeholder, so the margin never
-   reaches the buyer's participant node.
+   reaches the buyer's party view.
 2. **Single-financing uniqueness (anti-double-pledge).** Confirming an invoice makes
    the buyer co-sign a `BuyerAttestation`, keyed on `(supplier, invoiceNumber)` and
    carrying the buyer and the amount. The attestation is unforgeable (the buyer signs
