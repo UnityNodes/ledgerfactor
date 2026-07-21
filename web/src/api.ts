@@ -17,7 +17,7 @@ const sessionId = (): string => {
   }
 };
 
-export const SID = sessionId();
+const SID = sessionId();
 const H = { 'x-lf-session': SID };
 
 export const fetchViews = async (): Promise<RoleView[]> =>
