@@ -72,14 +72,23 @@ const scoreFor = (amount: number, tenorDays: number, buyerName: string, priorBoo
     { totalReceivables: EXISTING_BOOK + priorBook, buyerReceivables: priorBook },
   );
 
-const getOrAllocate = async (hint: string): Promise<string> => {
+const getOrAllocate = async (hint: string, known?: { identifier: string }[]): Promise<string> => {
   try {
-    const existing = (await ledger.listParties()).find((p) => p.identifier.startsWith(hint + '::'));
+    const list = known ?? (await ledger.listParties());
+    const existing = list.find((p) => p.identifier.startsWith(hint + '::'));
     if (existing) return existing.identifier;
   } catch {
     /* fall through */
   }
   return ledger.allocateParty(hint);
+};
+
+const knownParties = async (): Promise<{ identifier: string }[]> => {
+  try {
+    return await ledger.listParties();
+  } catch {
+    return [];
+  }
 };
 
 const sanitize = (s: string): string => createHash('sha256').update(String(s)).digest('hex').slice(0, 24);
@@ -92,12 +101,14 @@ const sessionParties = async (sid: string, allocate: boolean): Promise<Parties |
   const pending = inflightParties.get(key);
   if (pending) return pending;
   const promise = (async (): Promise<Parties> => {
-    const p: Parties = {
-      supplier: await getOrAllocate('Sup' + key),
-      buyer: await getOrAllocate('Buy' + key),
-      financier: await getOrAllocate('Fin' + key),
-      auditor: await getOrAllocate('Aud' + key),
-    };
+    const known = await knownParties();
+    const [supplier, buyer, financier, auditor] = await Promise.all([
+      getOrAllocate('Sup' + key, known),
+      getOrAllocate('Buy' + key, known),
+      getOrAllocate('Fin' + key, known),
+      getOrAllocate('Aud' + key, known),
+    ]);
+    const p: Parties = { supplier, buyer, financier, auditor };
     sessions.set(key, p);
     touch(key);
     reapSessions();
@@ -126,11 +137,10 @@ const sessionBidders = async (sid: string, allocate: boolean): Promise<Bidder[] 
   const pending = inflightBidders.get(key);
   if (pending) return pending;
   const promise = (async (): Promise<Bidder[]> => {
-    const list: Bidder[] = [];
-    for (const b of BIDDERS) {
-      const party = await getOrAllocate('Bid' + b.key.slice(0, 3) + key);
-      list.push({ ...b, party });
-    }
+    const known = await knownParties();
+    const list = await Promise.all(
+      BIDDERS.map(async (b) => ({ ...b, party: await getOrAllocate('Bid' + b.key.slice(0, 3) + key, known) })),
+    );
     auctions.set(key, list);
     touch(key);
     return list;

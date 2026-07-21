@@ -28,12 +28,12 @@ Three guarantees are enforced by the ledger, not by the UI:
    reaches the buyer's participant node.
 2. **Single-financing uniqueness (anti-double-pledge).** Confirming an invoice makes
    the buyer co-sign a `BuyerAttestation`, keyed on `(supplier, invoiceNumber)` and
-   carrying the buyer and the amount. Turning a proposal into an offer (`AcceptProposal`)
-   checks that a matching attestation exists and that its buyer and amount equal the
-   invoice's, so no offer can exist for an invoice the buyer never signed, nor one that
-   inflates what the buyer did sign. The key admits each number once, and the settled
-   receivable is keyed the same way, so one receivable can never be financed twice and a
-   confirmation cannot be forged.
+   carrying the buyer and the amount. The attestation is unforgeable (the buyer signs
+   it), and the financing path (`AcceptProposal`) checks that a matching attestation
+   exists and that its buyer and amount equal the invoice's, so a supplier cannot get an
+   honest financier to fund an invoice the buyer never signed, nor inflate one the buyer
+   did. The settled receivable is keyed `(supplier, invoiceNumber)` too, so one
+   receivable can never be financed twice, on any path.
 3. **Atomic DvP.** Assigning the receivable and paying the supplier the discounted
    cash settle in a single transaction.
 
@@ -150,6 +150,13 @@ the reveal.
   the buyer must attest each number, and each is financed once. Guaranteeing that two
   different numbers do not point at the same real-world receivable is a business-layer
   control (dedup on an external receivable id), not something the ledger can know.
+- **Anti-forgery assumes an honest financier.** A `FinancingOffer` is co-signed by the
+  financier and supplier, so a financier who colludes with the supplier could mint one
+  directly and skip the attestation check. That harms only the colluding financier: the
+  buyer merely observes the resulting receivable (it never signs it) and can repudiate
+  one it never attested, and no receivable is financeable twice regardless. An honest
+  financier only ever funds offers minted through `AcceptProposal`, whose attestation
+  gate it relies on, so it is never tricked into funding an invoice the buyer never signed.
 
 ## Status
 
