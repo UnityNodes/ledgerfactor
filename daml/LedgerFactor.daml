@@ -22,7 +22,7 @@ template Invoice
     choice Confirm : ContractId Invoice
       controller buyer
       do
-        _ <- create BuyerAttestation with supplier, buyer, invoiceNumber
+        _ <- create BuyerAttestation with supplier, buyer, invoiceNumber, amount
         create this with status = Confirmed
 
     choice ListForFinancing : ContractId Invoice
@@ -36,6 +36,7 @@ template BuyerAttestation
     supplier : Party
     buyer : Party
     invoiceNumber : Text
+    amount : Decimal
   where
     signatory buyer, supplier
     key (supplier, invoiceNumber) : (Party, Text)
@@ -130,7 +131,9 @@ template FinancingProposal
       controller supplier
       do
         inv <- fetch invoiceCid
-        _ <- fetchByKey @BuyerAttestation (supplier, inv.invoiceNumber)
+        (_, att) <- fetchByKey @BuyerAttestation (supplier, inv.invoiceNumber)
+        assertMsg "the attesting buyer must match the invoice buyer" (att.buyer == inv.buyer)
+        assertMsg "the attested amount must match the invoice amount" (att.amount == inv.amount)
         create FinancingOffer with
           financier
           supplier

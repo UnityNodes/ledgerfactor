@@ -26,11 +26,13 @@ Three guarantees are enforced by the ledger, not by the UI:
    `FinancingProposal` / `FinancingOffer`, whose only stakeholders are the
    financier and supplier. The buyer is never a stakeholder, so the margin never
    reaches the buyer's participant node.
-2. **Single-financing uniqueness (anti-double-pledge).** Confirming an invoice
-   creates a `BuyerAttestation` the buyer co-signs, keyed on `(supplier, invoiceNumber)`.
-   The same number can be attested, and therefore financed, only once, and financing
-   an invoice the buyer never attested is rejected at the ledger. So one receivable
-   can never be financed twice and a confirmation cannot be forged.
+2. **Single-financing uniqueness (anti-double-pledge).** Confirming an invoice makes
+   the buyer co-sign a `BuyerAttestation`, keyed on `(supplier, invoiceNumber)` and
+   carrying the buyer and the amount. Accepting financing checks that a matching
+   attestation exists and that its buyer and amount equal the invoice's, so a supplier
+   cannot finance an invoice the buyer never signed, nor inflate one the buyer did. The
+   key admits each number once, and the settled receivable is keyed the same way, so one
+   receivable can never be financed twice and a confirmation cannot be forged.
 3. **Atomic DvP.** Assigning the receivable and paying the supplier the discounted
    cash settle in a single transaction.
 
@@ -62,6 +64,10 @@ as its own party:
   contract; the buyer **cannot attest it again**, so it can never be financed twice.
 - `testForgedConfirmationCannotFinance` - a supplier-forged `Confirmed` invoice with no
   buyer attestation is **rejected**; financing needs the buyer's signed acknowledgement.
+- `testForgedAmountCannotFinance` - the buyer signs a small invoice, the supplier reuses
+  its number on an inflated one; financing is **rejected** on the amount mismatch.
+- `testForgedBuyerCannotFinance` - the supplier attests with a throwaway party, then
+  names the real buyer on the invoice; financing is **rejected** on the buyer mismatch.
 - `testHappyPathSettlement` - atomic DvP: supplier paid 97,000 on a 100,000 invoice
   at 3%, original receivable gone, auditor sees face value only.
 
@@ -71,6 +77,8 @@ daml/Tests.daml:testSelectiveDisclosure: ok, 3 active contracts, 4 transactions.
 daml/Tests.daml:testNoDoubleFinancing: ok, 6 active contracts, 11 transactions.
 daml/Tests.daml:testNoDoublePledgeAcrossContracts: ok, 5 active contracts, 9 transactions.
 daml/Tests.daml:testForgedConfirmationCannotFinance: ok, 2 active contracts, 3 transactions.
+daml/Tests.daml:testForgedAmountCannotFinance: ok, 4 active contracts, 5 transactions.
+daml/Tests.daml:testForgedBuyerCannotFinance: ok, 4 active contracts, 5 transactions.
 daml/Tests.daml:testFaceAmountMustMatchInvoice: ok, 6 active contracts, 11 transactions.
 daml/Tests.daml:testHappyPathSettlement: ok, 4 active contracts, 7 transactions.
 daml/Tests.daml:testSealedBidAuction: ok, 6 active contracts, 10 transactions.
@@ -137,6 +145,10 @@ the reveal.
 - **Notified factoring.** Listing an invoice reveals the financier's identity to
   the buyer; the sensitive figure - the pricing - stays hidden. Undisclosed
   factoring (hiding the financier too) would use Canton explicit disclosure.
+- **Invoice identity is the number.** Uniqueness is enforced per `invoiceNumber`, so
+  the buyer must attest each number, and each is financed once. Guaranteeing that two
+  different numbers do not point at the same real-world receivable is a business-layer
+  control (dedup on an external receivable id), not something the ledger can know.
 
 ## Status
 

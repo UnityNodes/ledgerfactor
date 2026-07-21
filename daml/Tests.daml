@@ -222,3 +222,74 @@ testForgedConfirmationCannotFinance = do
       faceAmount = 100000.0
       discountRate = 0.03
   submitMustFail p.supplier do exerciseCmd prop AcceptProposal
+
+testForgedAmountCannotFinance : Script ()
+testForgedAmountCannotFinance = do
+  p <- setupParties
+
+  small <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financiers = []
+      amount = 1000.0
+      invoiceNumber = "INV-100"
+      description = "genuine small invoice"
+      status = Issued
+  _ <- submit p.buyer do exerciseCmd small Confirm
+
+  inflated <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financiers = [p.financier]
+      amount = 500000.0
+      invoiceNumber = "INV-100"
+      description = "inflated forgery"
+      status = Confirmed
+  prop <- submit p.financier do
+    createCmd FinancingProposal with
+      financier = p.financier
+      supplier = p.supplier
+      buyer = p.buyer
+      auditor = p.auditor
+      invoiceCid = inflated
+      faceAmount = 500000.0
+      discountRate = 0.03
+  submitMustFail p.supplier do exerciseCmd prop AcceptProposal
+
+testForgedBuyerCannotFinance : Script ()
+testForgedBuyerCannotFinance = do
+  p <- setupParties
+  impostor <- allocateParty "Impostor"
+
+  dummy <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = impostor
+      financiers = []
+      amount = 100000.0
+      invoiceNumber = "INV-X"
+      description = "self-attested dummy"
+      status = Issued
+  _ <- submit impostor do exerciseCmd dummy Confirm
+
+  real <- submit p.supplier do
+    createCmd Invoice with
+      supplier = p.supplier
+      buyer = p.buyer
+      financiers = [p.financier]
+      amount = 100000.0
+      invoiceNumber = "INV-X"
+      description = "names a buyer who never signed"
+      status = Confirmed
+  prop <- submit p.financier do
+    createCmd FinancingProposal with
+      financier = p.financier
+      supplier = p.supplier
+      buyer = p.buyer
+      auditor = p.auditor
+      invoiceCid = real
+      faceAmount = 100000.0
+      discountRate = 0.03
+  submitMustFail p.supplier do exerciseCmd prop AcceptProposal
