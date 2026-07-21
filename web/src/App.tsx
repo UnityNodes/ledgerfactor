@@ -253,7 +253,7 @@ export const App = () => {
       invoiceCid.current = null; offerCid.current = null; underwriteRef.current = null;
       setUnderwrite(null); setStepIdx(0); setError(null);
       await refresh();
-    } finally { setBusy(false); }
+    } catch (e) { await handleErr(e); } finally { setBusy(false); }
   };
 
   const autoplay = async () => {
