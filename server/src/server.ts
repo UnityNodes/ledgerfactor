@@ -370,7 +370,13 @@ app.post('/api/actions/finance', async (req, res) => {
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
     const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: String(faceAmount) });
-    const result = await ledger.exercise(p.financier, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
+    let result: unknown;
+    try {
+      result = await ledger.exercise(p.financier, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
+    } catch (e) {
+      await ledger.exercise(p.financier, 'Cash', cash.contractId, 'Archive', {}).catch(() => undefined);
+      throw e;
+    }
     res.json({ ok: true, result });
   } catch (e) { fail(res, e); }
 });
