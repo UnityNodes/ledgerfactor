@@ -42,6 +42,19 @@ const lastSeen = new Map<string, number>();
 const inflightParties = new Map<string, Promise<Parties>>();
 const inflightBidders = new Map<string, Promise<Bidder[]>>();
 
+const ALLOC_CAP = 250;
+const ALLOC_REFILL_MS = 1000;
+let allocTokens = ALLOC_CAP;
+let allocRefillAt = Date.now();
+const takeAllocToken = (): boolean => {
+  const now = Date.now();
+  const gained = Math.floor((now - allocRefillAt) / ALLOC_REFILL_MS);
+  if (gained > 0) { allocTokens = Math.min(ALLOC_CAP, allocTokens + gained); allocRefillAt = now; }
+  if (allocTokens <= 0) return false;
+  allocTokens -= 1;
+  return true;
+};
+
 const touch = (key: string): void => { lastSeen.set(key, Date.now()); };
 
 const forget = (key: string): void => { sessions.delete(key); auctions.delete(key); lastSeen.delete(key); };
@@ -100,6 +113,7 @@ const sessionParties = async (sid: string, allocate: boolean): Promise<Parties |
   if (!allocate) return null;
   const pending = inflightParties.get(key);
   if (pending) return pending;
+  if (!takeAllocToken()) throw new Error('RATE_LIMITED: too many new demo sessions, retry shortly');
   const promise = (async (): Promise<Parties> => {
     const known = await knownParties();
     const [supplier, buyer, financier, auditor] = await Promise.all([
@@ -136,6 +150,7 @@ const sessionBidders = async (sid: string, allocate: boolean): Promise<Bidder[] 
   if (!allocate) return null;
   const pending = inflightBidders.get(key);
   if (pending) return pending;
+  if (!takeAllocToken()) throw new Error('RATE_LIMITED: too many new demo sessions, retry shortly');
   const promise = (async (): Promise<Bidder[]> => {
     const known = await knownParties();
     const list = await Promise.all(
@@ -196,6 +211,9 @@ app.use(express.json());
 const fail = (res: express.Response, e: unknown) => {
   const raw = String(e);
   console.error('[ledger]', raw);
+  if (/RATE_LIMITED/.test(raw)) {
+    return res.status(429).json({ error: 'the demo is starting a lot of sessions right now, retry in a moment' });
+  }
   const stale = /CONTRACT_NOT_FOUND|NOT_FOUND|not found/i.test(raw);
   res.status(stale ? 409 : 500).json({ error: stale ? 'CONTRACT_NOT_FOUND: the demo ledger moved on, reset to run a fresh deal' : 'ledger operation failed' });
 };
