@@ -1,9 +1,9 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 
 const JSON_API = process.env.JSON_API ?? 'http://localhost:7575';
 const LEDGER_ID = process.env.LEDGER_ID ?? 'sandbox';
 const APP_ID = 'ledgerfactor';
-const SECRET = process.env.LF_JWT_SECRET ?? 'ledgerfactor-dev-secret';
+const SECRET = process.env.LF_JWT_SECRET ?? randomBytes(32).toString('hex');
 
 const PACKAGE_ID = process.env.LF_PACKAGE_ID ?? '';
 

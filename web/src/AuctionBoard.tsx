@@ -602,7 +602,7 @@ export function AuctionBoard() {
             )}
             {(phase === 'open' || phase === 'collecting') && (
               <button className="btn btn-primary" onClick={collectAll} disabled={busy || allSealed}>
-                {busy ? 'Sealing…' : 'Seal all three bids'} <span className="arrow">▶</span>
+                {busy ? 'Sealing…' : `Seal all ${bidders.length} bids`} <span className="arrow">▶</span>
               </button>
             )}
             {phase === 'collected' && isSupplierView && (
@@ -678,7 +678,7 @@ export function AuctionBoard() {
           </div>
           <p className="vld-collect-note">
             Each bid is written to that financier’s own ledger node. No rival can read it -
-            sub-transaction privacy, not a UI trick. Once all three are in, pick up each party’s key.
+            sub-transaction privacy, not a UI trick. Once all {bidders.length} are in, pick up each party’s key.
           </p>
         </div>
       )}

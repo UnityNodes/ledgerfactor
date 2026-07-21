@@ -77,3 +77,18 @@ cd web && npm run build && sudo cp -r dist/. /var/www/ledgerfactor/
 # backend / daml
 daml build && sudo systemctl restart lf-sandbox   # cascades to json-api + server
 ```
+
+## Secrets (optional)
+
+`lf-server.sh` sources `/etc/ledgerfactor.env` if present, so keys never live in
+the repo. Drop them there (owned by the service user, `chmod 600`) and restart
+`lf-server`:
+
+```
+GROQ_API_KEY=gsk_...        # activates the live LLM underwriting memo (or ANTHROPIC_API_KEY)
+GROQ_MODEL=llama-3.3-70b-versatile
+```
+
+With no key the memo is the deterministic rules-engine template (the UI shows a
+`RULES` badge). The JSON API runs with `--allow-insecure-tokens`, so `LF_JWT_SECRET`
+is optional; unset, the server signs with an ephemeral per-process secret.

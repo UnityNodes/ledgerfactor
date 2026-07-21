@@ -276,6 +276,7 @@ export const App = () => {
   };
 
   const started = stepIdx > 0 || busy;
+  const connected = views != null && !error;
   const done = stepIdx >= STEPS.length;
   const current = STEPS[Math.min(stepIdx, STEPS.length - 1)];
   const showDisclosureBanner = stepIdx >= 5 && margin != null;
@@ -285,7 +286,7 @@ export const App = () => {
     <canvas className="bgfx" ref={bgRef} aria-hidden />
     <div className="app">
       <header className="masthead">
-        <div className="brand-mark"><span className="live-dot" /> CANTON SANDBOX · LIVE</div>
+        <div className={`brand-mark${connected ? '' : ' offline'}`}><span className={`live-dot${connected ? '' : ' off'}`} /> CANTON SANDBOX · {connected ? 'LIVE' : 'CONNECTING'}</div>
         <h1>Ledger<span className="brass">Factor</span></h1>
         <p className="lede">
           A supplier sells a buyer-approved invoice to a financier. Drive the deal below and watch the four

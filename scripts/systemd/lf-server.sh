@@ -4,6 +4,8 @@ export HOME="${HOME:-/home/$(id -un)}"
 export PATH="$HOME/.daml/bin:/usr/bin:/bin:${PATH:-}"
 cd "$(cd "$(dirname "$0")/../.." && pwd)"
 
+if [ -f /etc/ledgerfactor.env ]; then set -a; . /etc/ledgerfactor.env; set +a; fi
+
 for _ in $(seq 1 240); do
   curl -sf localhost:7575/readyz >/dev/null 2>&1 && break
   sleep 1

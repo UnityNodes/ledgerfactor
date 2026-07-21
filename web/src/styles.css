@@ -160,6 +160,8 @@ body::after {
   box-shadow: 0 0 0 0 rgba(213, 165, 227, 0.6), 0 0 10px rgba(213, 165, 227, 0.9);
   animation: pulse 2.4s infinite;
 }
+.live-dot.off { background: var(--muted); box-shadow: none; animation: none; }
+.brand-mark.offline { color: var(--muted); }
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 rgba(213, 165, 227, 0.5), 0 0 10px rgba(213, 165, 227, 0.9); }
   70% { box-shadow: 0 0 0 8px rgba(213, 165, 227, 0), 0 0 10px rgba(213, 165, 227, 0.5); }
@@ -777,11 +779,18 @@ h1 .brass {
 }
 @media (max-width: 480px) {
   .app { padding: 30px 15px 48px; }
-  h1 { font-size: clamp(40px, 12vw, 56px); }
+  h1 { font-size: clamp(32px, 12vw, 56px); overflow-wrap: anywhere; }
   .deck { padding: 18px 16px; }
   .deck-controls { gap: 12px; }
   .deck-actions { flex-direction: column; align-items: stretch; gap: 8px; }
   .deck-actions .btn { flex: 0 0 auto; width: 100%; text-align: center; padding: 12px 14px; white-space: normal; }
+  .margin-value { font-size: clamp(26px, 9vw, 38px); overflow-wrap: anywhere; }
+  .score-num { font-size: clamp(30px, 10vw, 40px); }
+  .figure { font-size: clamp(22px, 7vw, 29px); overflow-wrap: anywhere; }
+  .vld-lot-face-val { font-size: clamp(20px, 6.5vw, 26px); overflow-wrap: anywhere; }
+  .refresh, .vld-modeswitch button, .vld-vtab { min-height: 44px; }
+  .vld-hero-copy { min-width: min(280px, 100%); }
+  .vld-hero-textcol { min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

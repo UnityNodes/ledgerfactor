@@ -284,6 +284,7 @@ app.get('/api/view/:role', async (req, res) => {
       let priorBook = 0;
       body.recommendations = (groups.Invoice ?? [])
         .filter((inv) => inv.status === 'Confirmed')
+        .sort((a, b) => String(a.contractId).localeCompare(String(b.contractId)))
         .map((inv) => {
           const amount = num(inv.amount);
           const result = scoreFor(amount, DEFAULT_TENOR, DISPLAY.buyer, priorBook);

@@ -104,8 +104,10 @@ done
 scores buyer payment reliability, portfolio concentration, dilution risk, and invoice
 size into a 0-100 credit score and risk band, and recommends a discount rate. The financier
 reviews and signs the resulting on-ledger offer. An LLM turns the structured
-rationale into a short memo; with no API key it falls back to a deterministic memo,
-so the demo never depends on a network call. 5/5 unit tests: `npm --prefix server test`.
+rationale into a short memo - via Groq (`GROQ_API_KEY`) or Anthropic
+(`ANTHROPIC_API_KEY`), using only the numbers the engine produced; with no key it
+falls back to a deterministic memo, so the demo never depends on a network call.
+10/10 unit tests: `npm --prefix server test`.
 
 ## Run it
 
