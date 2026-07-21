@@ -220,6 +220,7 @@ const fail = (res: express.Response, e: unknown) => {
 
 const positiveAmount = (v: unknown): boolean => v === undefined || (Number.isFinite(Number(v)) && Number(v) > 0);
 const finitePositive = (v: unknown): boolean => Number.isFinite(Number(v)) && Number(v) > 0;
+const nonEmptyString = (v: unknown): boolean => typeof v === 'string' && v.length > 0;
 
 const invoiceNumber = (): string => 'INV-' + Math.random().toString(36).slice(2, 9).toUpperCase();
 
@@ -265,7 +266,7 @@ app.get('/api/view/:role', async (req, res) => {
 
 app.post('/api/score', async (req, res) => {
   const { amount, tenorDays, buyer, priorBook } = req.body ?? {};
-  if (!finitePositive(amount) || !finitePositive(tenorDays) || !Number.isFinite(num(priorBook))) {
+  if (!finitePositive(amount) || !finitePositive(tenorDays) || !Number.isFinite(num(priorBook)) || num(priorBook) < 0) {
     return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
   }
   const result = scoreFor(amount, tenorDays, buyer ?? DISPLAY.buyer, num(priorBook));
@@ -288,6 +289,7 @@ app.post('/api/actions/invoice', async (req, res) => {
 
 app.post('/api/actions/confirm', async (req, res) => {
   try {
+    if (!nonEmptyString(req.body?.invoiceCid)) return res.status(400).json({ error: 'invoiceCid is required' });
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
     const cid = await ledger.exercise(p.buyer, 'Invoice', req.body.invoiceCid, 'Confirm', {});
@@ -297,6 +299,7 @@ app.post('/api/actions/confirm', async (req, res) => {
 
 app.post('/api/actions/list', async (req, res) => {
   try {
+    if (!nonEmptyString(req.body?.invoiceCid)) return res.status(400).json({ error: 'invoiceCid is required' });
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
     const cid = await ledger.exercise(p.supplier, 'Invoice', req.body.invoiceCid, 'ListForFinancing', { newFinanciers: [p.financier] });
@@ -318,9 +321,12 @@ app.post('/api/actions/underwrite', async (req, res) => {
 
 app.post('/api/actions/offer', async (req, res) => {
   try {
+    const { invoiceCid, faceAmount, discountRate } = req.body ?? {};
+    if (!nonEmptyString(invoiceCid) || !finitePositive(faceAmount) || !finitePositive(discountRate)) {
+      return res.status(400).json({ error: 'invoiceCid, faceAmount and discountRate are required' });
+    }
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
-    const { invoiceCid, faceAmount, discountRate } = req.body ?? {};
     const prop = await ledger.create(p.financier, 'FinancingProposal', {
       financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
       invoiceCid, faceAmount: String(faceAmount), discountRate: String(discountRate),
@@ -338,9 +344,12 @@ app.post('/api/actions/offer', async (req, res) => {
 
 app.post('/api/actions/finance', async (req, res) => {
   try {
+    const { offerCid, faceAmount } = req.body ?? {};
+    if (!nonEmptyString(offerCid) || !finitePositive(faceAmount)) {
+      return res.status(400).json({ error: 'offerCid and faceAmount are required' });
+    }
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
-    const { offerCid, faceAmount } = req.body ?? {};
     const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: String(faceAmount) });
     const result = await ledger.exercise(p.financier, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
     res.json({ ok: true, result });
@@ -538,6 +547,7 @@ app.post('/api/auction/reset', async (req, res) => {
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[http]', err && err.message ? err.message : err);
   if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'invalid JSON body' });
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'request body too large' });
   res.status(500).json({ error: 'internal error' });
 });
 
