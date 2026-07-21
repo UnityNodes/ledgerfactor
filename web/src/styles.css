@@ -819,7 +819,7 @@ h1 .brass {
 
 /* ============================ MASTHEAD MODE TOGGLE ============================ */
 .vld-modeswitch {
-  display: inline-flex; gap: 3px; padding: 3px; margin-top: 18px;
+  display: inline-flex; flex-wrap: wrap; max-width: 100%; gap: 3px; padding: 3px; margin-top: 18px;
   border: 1px solid var(--line-2); border-radius: 4px;
   background: rgba(255, 255, 255, 0.015);
 }
