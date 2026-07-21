@@ -505,6 +505,7 @@ export function AuctionBoard() {
   const isSupplierView = viewer === 'supplier';
   const isFinancierView = bidders.some((b) => b.key === viewer);
   const noPricingView = viewer === 'buyer' || viewer === 'auditor';
+  const winRateEntitled = phase === 'closed' && (isSupplierView || (isFinancierView && winnerKey === viewer));
   const viewerMeta = viewers.find((v) => v.key === viewer);
 
   /* THE single derived signal that single-sources the iris, the key-ring, the hero
@@ -527,8 +528,7 @@ export function AuctionBoard() {
     let open: boolean;
     let shownRate: number | undefined;
     if (phase === 'closed') {
-      const entitled = isSupplierView || (isFinancierView && winnerKey === viewer);
-      open = isWinner && !noPricingView && entitled;
+      open = isWinner && !noPricingView && winRateEntitled;
       shownRate = open ? winner?.rate : undefined;
     } else {
       const rate = visibleByKey[b.key];
@@ -839,7 +839,7 @@ export function AuctionBoard() {
             </p>
           )}
 
-          {phase === 'closed' && winner && !noPricingView && (
+          {phase === 'closed' && winner && winRateEntitled && (
             <div className="vld-verdict">
               <span className="vld-verdict-tag">🔓 REVEALED</span>
               <span className="vld-verdict-text">
@@ -849,12 +849,17 @@ export function AuctionBoard() {
               </span>
             </div>
           )}
-          {phase === 'closed' && winner && noPricingView && (
+          {phase === 'closed' && winner && !winRateEntitled && (
             <div className="vld-verdict muted">
               <span className="vld-verdict-tag muted">✓ SETTLED</span>
               <span className="vld-verdict-text">
-                The auction has settled - you can see the receivable changed hands, but{' '}
-                <b className="rose">not at what rate</b>.
+                {noPricingView ? (
+                  <>The auction has settled - you can see the receivable changed hands, but{' '}
+                  <b className="rose">not at what rate</b>.</>
+                ) : (
+                  <>The auction settled to a rival. The winning rate{' '}
+                  <b className="rose">was never disclosed to you</b>.</>
+                )}
               </span>
             </div>
           )}
