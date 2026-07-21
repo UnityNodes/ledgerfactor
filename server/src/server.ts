@@ -192,6 +192,21 @@ const seedScene = async (p: Parties): Promise<void> => {
     invoiceCid: aListed, faceAmount: '100000', discountRate: String(scoreA.recommendedDiscountRate),
   });
   await ledger.exercise(p.supplier, 'FinancingProposal', propA.contractId, 'AcceptProposal', {});
+
+  const b = await ledger.create(p.supplier, 'Invoice', {
+    supplier: p.supplier, buyer: p.buyer, financiers: [],
+    amount: '240000', invoiceNumber: invoiceNumber(), description: 'Q2 logistics tranche', status: 'Issued',
+  });
+  const bConfirmed = await ledger.exercise(p.buyer, 'Invoice', b.contractId, 'Confirm', {});
+  const bListed = await ledger.exercise(p.supplier, 'Invoice', bConfirmed, 'ListForFinancing', { newFinanciers: [p.financier] });
+  const scoreB = scoreFor(240000, DEFAULT_TENOR, buyerName, 100000);
+  const propB = await ledger.create(p.financier, 'FinancingProposal', {
+    financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
+    invoiceCid: bListed, faceAmount: '240000', discountRate: String(scoreB.recommendedDiscountRate),
+  });
+  const offerB = await ledger.exercise(p.supplier, 'FinancingProposal', propB.contractId, 'AcceptProposal', {});
+  const cashB = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: '240000' });
+  await ledger.exercise(p.financier, 'FinancingOffer', offerB, 'AcceptFinancing', { financierCashCid: cashB.contractId });
 };
 
 const bootstrap = async (): Promise<void> => {
@@ -205,6 +220,7 @@ const bootstrap = async (): Promise<void> => {
 };
 
 const app = express();
+app.disable('x-powered-by');
 app.use(cors());
 app.use(express.json());
 
@@ -220,7 +236,7 @@ const fail = (res: express.Response, e: unknown) => {
   res.status(badInput ? 400 : 500).json({ error: badInput ? 'invalid request' : 'ledger operation failed' });
 };
 
-const inRange = (v: unknown): boolean => typeof v !== 'boolean' && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) < 1e15;
+const inRange = (v: unknown): boolean => (typeof v === 'number' || typeof v === 'string') && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) < 1e15;
 const positiveAmount = (v: unknown): boolean => v === undefined || inRange(v);
 const finitePositive = (v: unknown): boolean => inRange(v);
 const nonEmptyString = (v: unknown): boolean => typeof v === 'string' && v.length > 0;
