@@ -18,14 +18,6 @@ const sessionId = (): string => {
 export const SID = sessionId();
 const H = { 'x-lf-session': SID };
 
-export const newSession = (): void => {
-  try {
-    localStorage.setItem('lf_sid', 'lf' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36));
-  } catch {
-    /* ignore */
-  }
-};
-
 export const fetchViews = async (): Promise<RoleView[]> =>
   Promise.all(
     ROLES.map(async (r) => {

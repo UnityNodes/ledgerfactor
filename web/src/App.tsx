@@ -313,12 +313,12 @@ export const App = () => {
           </label>
           <div className="deck-actions">
             {!done && (
-              <button className="btn btn-primary" onClick={next} disabled={busy}>
+              <button className="btn btn-primary" onClick={next} disabled={busy || (!started && amount < 1000)}>
                 {busy ? '…' : `${stepIdx + 1}. ${current.cta}`} <span className="arrow">▶</span>
               </button>
             )}
             {stepIdx === 0 && !busy && (
-              <button className="btn btn-ghost" onClick={autoplay} disabled={busy}>▶▶ Auto-play</button>
+              <button className="btn btn-ghost" onClick={autoplay} disabled={busy || amount < 1000}>▶▶ Auto-play</button>
             )}
             {(started || done) && (
               <button className="btn btn-ghost" onClick={reset} disabled={busy}>↺ Reset</button>
