@@ -218,7 +218,8 @@ const fail = (res: express.Response, e: unknown) => {
   res.status(stale ? 409 : 500).json({ error: stale ? 'CONTRACT_NOT_FOUND: the demo ledger moved on, reset to run a fresh deal' : 'ledger operation failed' });
 };
 
-const positiveAmount = (v: unknown): boolean => v === undefined || Number(v) > 0;
+const positiveAmount = (v: unknown): boolean => v === undefined || (Number.isFinite(Number(v)) && Number(v) > 0);
+const finitePositive = (v: unknown): boolean => Number.isFinite(Number(v)) && Number(v) > 0;
 
 const invoiceNumber = (): string => 'INV-' + Math.random().toString(36).slice(2, 9).toUpperCase();
 
@@ -264,7 +265,7 @@ app.get('/api/view/:role', async (req, res) => {
 
 app.post('/api/score', async (req, res) => {
   const { amount, tenorDays, buyer, priorBook } = req.body ?? {};
-  if (typeof amount !== 'number' || typeof tenorDays !== 'number' || !(amount > 0) || !(tenorDays > 0)) {
+  if (!finitePositive(amount) || !finitePositive(tenorDays) || !Number.isFinite(num(priorBook))) {
     return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
   }
   const result = scoreFor(amount, tenorDays, buyer ?? DISPLAY.buyer, num(priorBook));
@@ -307,7 +308,7 @@ app.post('/api/actions/underwrite', async (req, res) => {
   try {
     const amount = Number(req.body?.amount);
     const tenorDays = Number(req.body?.tenorDays ?? DEFAULT_TENOR);
-    if (!(amount > 0) || !(tenorDays > 0)) {
+    if (!finitePositive(amount) || !finitePositive(tenorDays)) {
       return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
     }
     const result = scoreFor(amount, tenorDays, DISPLAY.buyer, 0);
@@ -423,6 +424,7 @@ app.post('/api/auction/bid', async (req, res) => {
     const { invoiceCid, bidderKey, amount } = req.body ?? {};
     const b = bidders.find((x) => x.key === bidderKey);
     if (!b) return res.status(404).json({ error: 'unknown bidder' });
+    if (!finitePositive(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
     const score = scoreFor(Number(amount), DEFAULT_TENOR, DISPLAY.buyer, 0);
     const rate = Math.round((score.recommendedDiscountRate + b.spread) * 10000) / 10000;
     await ledger.create(b.party, 'FinancingProposal', {
