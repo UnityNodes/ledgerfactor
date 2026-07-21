@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { createHash } from 'node:crypto';
 import * as ledger from './ledger';
 import { scoreInvoice } from './scoring/rules';
 import { explainScore, fallbackExplanation } from './scoring/explain';
@@ -32,7 +33,34 @@ const profileFor = (buyer: string): BuyerCreditProfile => ({
 interface Parties { supplier: string; buyer: string; financier: string; auditor: string; }
 let ready = false;
 let bootError: string | null = null;
+
+const MAX_SESSIONS = 500;
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const sessions = new Map<string, Parties>();
+const auctions = new Map<string, Bidder[]>();
+const lastSeen = new Map<string, number>();
+const inflightParties = new Map<string, Promise<Parties>>();
+const inflightBidders = new Map<string, Promise<Bidder[]>>();
+
+const touch = (key: string): void => { lastSeen.set(key, Date.now()); };
+
+const forget = (key: string): void => { sessions.delete(key); auctions.delete(key); lastSeen.delete(key); };
+
+const reapSessions = (): void => {
+  const now = Date.now();
+  for (const [k, seen] of lastSeen) {
+    if (now - seen > SESSION_TTL_MS) forget(k);
+  }
+  while (sessions.size > MAX_SESSIONS) {
+    let oldest: string | null = null;
+    let oldestSeen = Infinity;
+    for (const [k, seen] of lastSeen) {
+      if (sessions.has(k) && seen < oldestSeen) { oldestSeen = seen; oldest = k; }
+    }
+    if (oldest === null) break;
+    forget(oldest);
+  }
+};
 
 const shortName = (tid: string): string => tid.split(':').pop() ?? tid;
 const num = (x: unknown): number => Number(x ?? 0);
@@ -54,22 +82,34 @@ const getOrAllocate = async (hint: string): Promise<string> => {
   return ledger.allocateParty(hint);
 };
 
-const sanitize = (s: string): string => (s.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'x');
+const sanitize = (s: string): string => createHash('sha256').update(String(s)).digest('hex').slice(0, 24);
 
 const sessionParties = async (sid: string, allocate: boolean): Promise<Parties | null> => {
   const key = sanitize(sid);
   const found = sessions.get(key);
-  if (found) return found;
+  if (found) { touch(key); return found; }
   if (!allocate) return null;
-  const p: Parties = {
-    supplier: await getOrAllocate('Sup' + key),
-    buyer: await getOrAllocate('Buy' + key),
-    financier: await getOrAllocate('Fin' + key),
-    auditor: await getOrAllocate('Aud' + key),
-  };
-  sessions.set(key, p);
-  console.log(`[session] allocated parties for ${key} (total sessions: ${sessions.size})`);
-  return p;
+  const pending = inflightParties.get(key);
+  if (pending) return pending;
+  const promise = (async (): Promise<Parties> => {
+    const p: Parties = {
+      supplier: await getOrAllocate('Sup' + key),
+      buyer: await getOrAllocate('Buy' + key),
+      financier: await getOrAllocate('Fin' + key),
+      auditor: await getOrAllocate('Aud' + key),
+    };
+    sessions.set(key, p);
+    touch(key);
+    reapSessions();
+    console.log(`[session] allocated parties for ${key} (total sessions: ${sessions.size})`);
+    return p;
+  })();
+  inflightParties.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightParties.delete(key);
+  }
 };
 
 interface Bidder { key: string; name: string; party: string; spread: number; appetite: string; }
@@ -78,20 +118,29 @@ const BIDDERS: Omit<Bidder, 'party'>[] = [
   { key: 'apex', name: 'Apex Credit', spread: 0.006, appetite: 'balanced' },
   { key: 'cobalt', name: 'Cobalt Partners', spread: 0.013, appetite: 'conservative' },
 ];
-const auctions = new Map<string, Bidder[]>();
-
 const sessionBidders = async (sid: string, allocate: boolean): Promise<Bidder[] | null> => {
   const key = sanitize(sid);
   const found = auctions.get(key);
-  if (found) return found;
+  if (found) { touch(key); return found; }
   if (!allocate) return null;
-  const list: Bidder[] = [];
-  for (const b of BIDDERS) {
-    const party = await getOrAllocate('Bid' + b.key.slice(0, 3) + key);
-    list.push({ ...b, party });
+  const pending = inflightBidders.get(key);
+  if (pending) return pending;
+  const promise = (async (): Promise<Bidder[]> => {
+    const list: Bidder[] = [];
+    for (const b of BIDDERS) {
+      const party = await getOrAllocate('Bid' + b.key.slice(0, 3) + key);
+      list.push({ ...b, party });
+    }
+    auctions.set(key, list);
+    touch(key);
+    return list;
+  })();
+  inflightBidders.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightBidders.delete(key);
   }
-  auctions.set(key, list);
-  return list;
 };
 
 const bidderNameOf = (bidders: Bidder[] | null, partyId: string): string =>
@@ -247,7 +296,13 @@ app.post('/api/actions/offer', async (req, res) => {
       financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
       invoiceCid, faceAmount: String(faceAmount), discountRate: String(discountRate),
     });
-    const offerCid = await ledger.exercise(p.supplier, 'FinancingProposal', prop.contractId, 'AcceptProposal', {});
+    let offerCid: string;
+    try {
+      offerCid = await ledger.exercise(p.supplier, 'FinancingProposal', prop.contractId, 'AcceptProposal', {});
+    } catch (e) {
+      await ledger.exercise(p.financier, 'FinancingProposal', prop.contractId, 'Archive', {}).catch(() => undefined);
+      throw e;
+    }
     res.json({ offerCid });
   } catch (e) { fail(res, e); }
 });
