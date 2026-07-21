@@ -216,12 +216,13 @@ const fail = (res: express.Response, e: unknown) => {
   }
   const stale = /CONTRACT_NOT_FOUND|NOT_FOUND|not found/i.test(raw);
   if (stale) return res.status(409).json({ error: 'CONTRACT_NOT_FOUND: the demo ledger moved on, reset to run a fresh deal' });
-  const badInput = /INVALID_ARGUMENT|cannot parse|invalid.{0,20}contract|malformed|unknown template/i.test(raw);
+  const badInput = /INVALID_ARGUMENT|cannot parse|invalid.{0,20}contract|malformed|unknown template|out-of-bounds|Numeric|Deserialization/i.test(raw);
   res.status(badInput ? 400 : 500).json({ error: badInput ? 'invalid request' : 'ledger operation failed' });
 };
 
-const positiveAmount = (v: unknown): boolean => v === undefined || (Number.isFinite(Number(v)) && Number(v) > 0);
-const finitePositive = (v: unknown): boolean => Number.isFinite(Number(v)) && Number(v) > 0;
+const inRange = (v: unknown): boolean => typeof v !== 'boolean' && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) < 1e15;
+const positiveAmount = (v: unknown): boolean => v === undefined || inRange(v);
+const finitePositive = (v: unknown): boolean => inRange(v);
 const nonEmptyString = (v: unknown): boolean => typeof v === 'string' && v.length > 0;
 
 const invoiceNumber = (): string => 'INV-' + Math.random().toString(36).slice(2, 9).toUpperCase();
