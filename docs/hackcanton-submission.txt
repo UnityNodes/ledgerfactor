@@ -2,12 +2,12 @@ Invoice financing is a multi-trillion dollar market running on a broken assumpti
 
 LedgerFactor is confidential invoice financing on Canton. A supplier sells a buyer-approved invoice to a financier at a discount. Three guarantees are enforced by the ledger, not by the UI:
 
-1. Selective disclosure. The discount rate lives on a contract whose only stakeholders are the financier and the supplier. The buyer is never a stakeholder, so the margin never reaches the buyer's node. Same invoice, four nodes, two different views.
+1. Selective disclosure. The discount rate lives on a contract whose only stakeholders are the financier and the supplier. The buyer is never a stakeholder, so the margin never reaches the buyer's party view. Same invoice, four party views, two different pictures.
 2. Single-exercise anti-double-pledge. The invoice is one authoritative contract and financing is a consuming choice, so a second financing attempt is rejected by the ledger. Double-pledging is structurally impossible.
 3. Atomic DvP. The supplier is paid and the receivable is assigned in one transaction.
 
 Two modes, both live:
-- Direct financing: a guided flow (issue, confirm, list, AI underwrite, offer, settle) with the four participant nodes side by side. An AI credit-scoring agent underwrites the receivable over only the data the financier is entitled to see.
+- Direct financing: a guided flow (issue, confirm, list, AI underwrite, offer, settle) with the four role screens side by side. An AI credit-scoring agent underwrites the receivable over only the data the financier is entitled to see.
 - Veild: a sealed-bid auction. Three financiers submit blind bids. As a financier you open only your own envelope; rivals stay wax-sealed because Canton never sent you their price. As the supplier you open them all, and the lowest bid wins. Losing bids are never revealed. This is impossible on a public chain, where sealed bids leak through logs before the reveal.
 
 Every claim is proven by Daml Script tests that query the ledger as each party. The whole thing is live and interactive at ledgerfactor.unitynodes.com.
