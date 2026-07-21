@@ -289,7 +289,7 @@ export const App = () => {
         <h1>Ledger<span className="brass">Factor</span></h1>
         <p className="lede">
           A supplier sells a buyer-approved invoice to a financier. Drive the deal below and watch the four
-          participant nodes side by side - the financier’s <b>margin is disclosed to only two of them</b>, enforced
+          party views side by side - the financier’s <b>margin is disclosed to only two of them</b>, enforced
           by Canton, not by this page.
         </p>
         <div className="vld-modeswitch" role="tablist" aria-label="Demo mode">

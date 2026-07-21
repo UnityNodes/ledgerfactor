@@ -715,7 +715,7 @@ export function AuctionBoard() {
                     ? 'master key · every sealed envelope opens for you'
                     : clearance === 'own'
                       ? 'single key · only your own envelope opens; rivals stay wax-sealed'
-                      : 'no key · you stand outside; no rate reaches your node'}
+                      : 'no key · you stand outside; no rate reaches your view'}
                 </span>
               </span>
             </div>
@@ -772,7 +772,7 @@ export function AuctionBoard() {
               )}
               {noPricingView && (
                 <>
-                  <b className="rose">No pricing</b> reaches your node. {bidders.length} sealed bids
+                  <b className="rose">No pricing</b> reaches your view. {bidders.length} sealed bids
                   exist; you learn none of them.
                 </>
               )}
