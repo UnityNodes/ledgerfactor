@@ -13,7 +13,7 @@ Business brief: [docs/business-brief.md](docs/business-brief.md).
 
 **Live:** https://ledgerfactor.unitynodes.com - an interactive guided demo: create an
 invoice and step it through issue → confirm → list → AI-underwrite → offer → settle,
-watching the four participant nodes update live. Persistent systemd services behind
+watching the four party views update live. Persistent systemd services behind
 Caddy + Cloudflare; see [docs/deploy.md](docs/deploy.md).
 
 ![The offer step - the 1.97% margin appears only on the Supplier and Financier nodes; Buyer and Auditor get a redaction bar](docs/demo-four-screens.png)
