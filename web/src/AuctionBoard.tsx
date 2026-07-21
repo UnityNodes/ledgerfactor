@@ -527,8 +527,9 @@ export function AuctionBoard() {
     let open: boolean;
     let shownRate: number | undefined;
     if (phase === 'closed') {
-      open = isWinner && !noPricingView;
-      shownRate = isWinner ? winner?.rate : undefined;
+      const entitled = isSupplierView || (isFinancierView && winnerKey === viewer);
+      open = isWinner && !noPricingView && entitled;
+      shownRate = open ? winner?.rate : undefined;
     } else {
       const rate = visibleByKey[b.key];
       open = rate != null && !noPricingView;
@@ -758,12 +759,17 @@ export function AuctionBoard() {
               {view?.displayName ?? viewerMeta?.label} · {view?.subtitle}
             </span>
             <span className="vld-identity-claim">
-              {isSupplierView && (
+              {isSupplierView && (phase === 'closed' ? (
+                <>
+                  You accepted the lowest bid; the losing envelopes are now{' '}
+                  <b className="rose">archived off the ledger</b>.
+                </>
+              ) : (
                 <>
                   <b className="vld-teal">Every</b> sealed envelope is disclosed to you - you are the
                   auctioneer.
                 </>
-              )}
+              ))}
               {isFinancierView && (
                 <>
                   You see <b className="vld-teal">only your own</b> envelope. Rivals stay{' '}
