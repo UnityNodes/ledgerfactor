@@ -63,7 +63,7 @@ optional supplier origination fee is a secondary line.
 
 | Requirement | Public chain | Shared database | **Canton** |
 |---|---|---|---|
-| Margin invisible to the buyer | ❌ leaks | ⚠️ a permission, revocable | ✅ never reaches the buyer's node |
+| Margin invisible to the buyer | ❌ leaks | ⚠️ a permission, revocable | ✅ never reaches the buyer's party view |
 | Same invoice financed only once | ⚠️ visible but ok | ⚠️ policy / registry | ✅ consuming contract, ledger-rejected |
 | Atomic DvP across rival institutions | ✅ | ❌ needs a trusted operator | ✅ |
 | Regulator audit **without** pricing | ❌ | ⚠️ | ✅ selective disclosure |
@@ -94,7 +94,7 @@ but destroys confidentiality. **Canton is the only place both hold at once.**
 
 1. **Sandbox pilot (2-4 weeks).** One buyer, three suppliers, one financier on a
    Canton validator. Run 10-20 anonymized real invoices through
-   create → finance → settle. *Success:* the buyer's node never receives the
+   create → finance → settle. *Success:* the buyer's party never receives the
    margin, a double-pledge attempt is rejected on-ledger, and the financier signs
    off on the AI rate recommendations.
 2. **Limited production (6-8 weeks).** Connect the financier's real cash rail
