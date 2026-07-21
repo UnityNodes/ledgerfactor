@@ -8,8 +8,8 @@ LedgerFactor is confidential invoice financing on Canton. A supplier sells a buy
 
 Two modes, both live:
 - Direct financing: a guided flow (issue, confirm, list, AI underwrite, offer, settle) with the four role screens side by side. An AI credit-scoring agent underwrites the receivable over only the data the financier is entitled to see.
-- Veild: a sealed-bid auction. Three financiers submit blind bids. As a financier you open only your own envelope; rivals stay wax-sealed because Canton never sent you their price. As the supplier you open them all, and the lowest bid wins. Losing bids are never revealed. This is impossible on a public chain, where sealed bids leak through logs before the reveal.
+- Veild: a sealed-bid auction. Three financiers submit blind bids. As a financier you open only your own envelope; rivals stay wax-sealed because Canton never sent you their price. As the supplier you open them all, and accept the best price — the server selects the lowest. Losing bids are never revealed. This is impossible on a public chain, where sealed bids leak through logs before the reveal.
 
-Every claim is proven by Daml Script tests that query the ledger as each party. The whole thing is live and interactive at ledgerfactor.unitynodes.com.
+The privacy and settlement claims are proven by Daml Script tests that query the ledger as each party. The whole thing is live and interactive at ledgerfactor.unitynodes.com.
 
 Honest scope: cash is a mock holding standing in for a token-standard holding (DvP atomicity is real). Listing reveals the financier's identity to the buyer; the pricing stays hidden.

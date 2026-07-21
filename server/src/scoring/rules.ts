@@ -61,13 +61,17 @@ const buildRationale = (
   recommendedDiscountRate: number,
   annualizedRate: number,
   cfg: ScoringConfig,
-): string[] => [
-  `Assumed buyer profile — on-time rate ${pct(buyer.onTimePaymentRate)} across ${buyer.invoicesConfirmed} confirmed invoice(s), avg ${buyer.avgDaysLate} day(s) late → reliability ${subScores.reliability}.`,
-  `This buyer would be ${pct(share)} of financed exposure vs a ${pct(cfg.concentrationCap)} cap → concentration ${subScores.concentration}.`,
-  `Historical dispute/dilution ${pct(buyer.disputeRate)} → dilution ${subScores.dilution}.`,
-  `Invoice ${invoice.amount.toLocaleString('en-US')} against a ${cfg.sizeReference.toLocaleString('en-US')} reference → size ${subScores.size}.`,
-  `Composite ${creditScore}/100 (band ${riskBand}) → ${decision.toUpperCase()}; recommended discount ${pct(recommendedDiscountRate)} for ${invoice.tenorDays}-day tenor (annualized ${pct(annualizedRate)}).`,
-];
+): string[] => {
+  const effectiveAnnualized =
+    invoice.tenorDays > 0 ? (recommendedDiscountRate * 365) / invoice.tenorDays : annualizedRate;
+  return [
+    `Assumed buyer profile — on-time rate ${pct(buyer.onTimePaymentRate)} across ${buyer.invoicesConfirmed} confirmed invoice(s), avg ${buyer.avgDaysLate} day(s) late → reliability ${subScores.reliability}.`,
+    `This buyer would be ${pct(share)} of financed exposure vs a ${pct(cfg.concentrationCap)} cap → concentration ${subScores.concentration}.`,
+    `Historical dispute/dilution ${pct(buyer.disputeRate)} → dilution ${subScores.dilution}.`,
+    `Invoice ${invoice.amount.toLocaleString('en-US')} against a ${cfg.sizeReference.toLocaleString('en-US')} reference → size ${subScores.size}.`,
+    `Composite ${creditScore}/100 (band ${riskBand}) → ${decision.toUpperCase()}; recommended discount ${pct(recommendedDiscountRate)} for ${invoice.tenorDays}-day tenor (annualized ${pct(effectiveAnnualized)}).`,
+  ];
+};
 
 export const scoreInvoice = (
   invoice: InvoiceInput,

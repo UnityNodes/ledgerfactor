@@ -130,9 +130,11 @@ auction. A supplier auctions one invoice to three financiers who each submit a
 is that **no financier can see another's bid**, only the supplier (auctioneer) sees
 them all. The **View as…** control re-queries the ledger as each party: as a
 financier only your own envelope opens (rivals stay wax-sealed); as the supplier
-every envelope opens; the buyer/auditor see no pricing. On close the lowest bid
-wins and settles atomically. Proven on-ledger by `testSealedBidAuction`
-([daml/Tests.daml](daml/Tests.daml)) and served from `server/src/server.ts`
+every envelope opens; the buyer/auditor see no pricing. On close the supplier
+accepts a bid and it settles atomically. What `testSealedBidAuction`
+([daml/Tests.daml](daml/Tests.daml)) proves on-ledger is the sealed-bid privacy
+and atomic settlement; lowest-wins is the server's selection convention, not a
+ledger-enforced rule. Served from `server/src/server.ts`
 (`/api/auction/*`) + [web/src/AuctionBoard.tsx](web/src/AuctionBoard.tsx).
 
 ![Veild - as a financier, only your own bid is visible; rivals stay wax-sealed](docs/veild-sealed-bids.png)

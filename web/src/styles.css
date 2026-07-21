@@ -777,6 +777,9 @@ h1 .brass {
   .spotlight { flex-direction: column; align-items: flex-start; gap: 12px; }
   .spot-text { font-size: 13px; }
 }
+@media (max-width: 768px) {
+  .refresh, .vld-modeswitch button, .vld-vtab { min-height: 44px; }
+}
 @media (max-width: 480px) {
   .app { padding: 30px 15px 48px; }
   h1 { font-size: clamp(32px, 12vw, 56px); overflow-wrap: anywhere; }
