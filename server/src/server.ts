@@ -215,7 +215,9 @@ const fail = (res: express.Response, e: unknown) => {
     return res.status(429).json({ error: 'the demo is starting a lot of sessions right now, retry in a moment' });
   }
   const stale = /CONTRACT_NOT_FOUND|NOT_FOUND|not found/i.test(raw);
-  res.status(stale ? 409 : 500).json({ error: stale ? 'CONTRACT_NOT_FOUND: the demo ledger moved on, reset to run a fresh deal' : 'ledger operation failed' });
+  if (stale) return res.status(409).json({ error: 'CONTRACT_NOT_FOUND: the demo ledger moved on, reset to run a fresh deal' });
+  const badInput = /INVALID_ARGUMENT|cannot parse|invalid.{0,20}contract|malformed|unknown template/i.test(raw);
+  res.status(badInput ? 400 : 500).json({ error: badInput ? 'invalid request' : 'ledger operation failed' });
 };
 
 const positiveAmount = (v: unknown): boolean => v === undefined || (Number.isFinite(Number(v)) && Number(v) > 0);
@@ -269,7 +271,7 @@ app.post('/api/score', async (req, res) => {
   if (!finitePositive(amount) || !finitePositive(tenorDays) || !Number.isFinite(num(priorBook)) || num(priorBook) < 0) {
     return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
   }
-  const result = scoreFor(amount, tenorDays, buyer ?? DISPLAY.buyer, num(priorBook));
+  const result = scoreFor(amount, tenorDays, typeof buyer === 'string' && buyer ? buyer : DISPLAY.buyer, num(priorBook));
   res.json({ result, memo: await explainScore(result) });
 });
 
@@ -450,15 +452,14 @@ app.post('/api/auction/close', async (req, res) => {
     const p = await sessionParties(sid, true);
     const bidders = await sessionBidders(sid, true);
     if (!p || !bidders) return res.status(503).json({ error: 'not ready' });
-    const { amount } = req.body ?? {};
     const props = await ledger.query(p.supplier, ['FinancingProposal']);
     if (!props.length) return res.status(400).json({ error: 'no bids to close' });
     const withRate = props
-      .map((c) => ({ cid: c.contractId, party: String((c.payload as any).financier), rate: Number((c.payload as any).discountRate) }))
+      .map((c) => ({ cid: c.contractId, party: String((c.payload as any).financier), rate: Number((c.payload as any).discountRate), faceAmount: String((c.payload as any).faceAmount) }))
       .sort((a, b) => a.rate - b.rate);
     const winner = withRate[0];
     const offerCid = await ledger.exercise(p.supplier, 'FinancingProposal', winner.cid, 'AcceptProposal', {});
-    const cash = await ledger.create(winner.party, 'Cash', { owner: winner.party, amount: String(amount ?? 100000) });
+    const cash = await ledger.create(winner.party, 'Cash', { owner: winner.party, amount: winner.faceAmount });
     await ledger.exercise(winner.party, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
     for (const w of withRate.slice(1)) {
       try { await ledger.exercise(w.party, 'FinancingProposal', w.cid, 'Archive', {}); } catch { /* ignore */ }
