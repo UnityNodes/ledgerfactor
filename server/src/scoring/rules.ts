@@ -62,7 +62,7 @@ const buildRationale = (
   annualizedRate: number,
   cfg: ScoringConfig,
 ): string[] => [
-  `Buyer on-time rate ${pct(buyer.onTimePaymentRate)} across ${buyer.invoicesConfirmed} confirmed invoice(s), avg ${buyer.avgDaysLate} day(s) late → reliability ${subScores.reliability}.`,
+  `Assumed buyer profile — on-time rate ${pct(buyer.onTimePaymentRate)} across ${buyer.invoicesConfirmed} confirmed invoice(s), avg ${buyer.avgDaysLate} day(s) late → reliability ${subScores.reliability}.`,
   `This buyer would be ${pct(share)} of financed exposure vs a ${pct(cfg.concentrationCap)} cap → concentration ${subScores.concentration}.`,
   `Historical dispute/dilution ${pct(buyer.disputeRate)} → dilution ${subScores.dilution}.`,
   `Invoice ${invoice.amount.toLocaleString('en-US')} against a ${cfg.sizeReference.toLocaleString('en-US')} reference → size ${subScores.size}.`,

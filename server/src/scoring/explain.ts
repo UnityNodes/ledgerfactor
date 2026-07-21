@@ -16,9 +16,16 @@ export interface ExplainOptions {
   apiKey?: string;
 }
 
-export const explainScore = async (r: ScoringResult, opts: ExplainOptions = {}): Promise<string> => {
+export type MemoSource = 'model' | 'template';
+
+export interface Explanation {
+  memo: string;
+  source: MemoSource;
+}
+
+export const explainScore = async (r: ScoringResult, opts: ExplainOptions = {}): Promise<Explanation> => {
   const apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackExplanation(r);
+  if (!apiKey) return { memo: fallbackExplanation(r), source: 'template' };
   try {
     const { default: Anthropic } = await import('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey });
@@ -47,8 +54,8 @@ export const explainScore = async (r: ScoringResult, opts: ExplainOptions = {}):
       .map((b) => (b as { text: string }).text)
       .join('')
       .trim();
-    return text || fallbackExplanation(r);
+    return text ? { memo: text, source: 'model' } : { memo: fallbackExplanation(r), source: 'template' };
   } catch {
-    return fallbackExplanation(r);
+    return { memo: fallbackExplanation(r), source: 'template' };
   }
 };

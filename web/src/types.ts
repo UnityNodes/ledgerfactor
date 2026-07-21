@@ -17,12 +17,21 @@ export interface ScoringResult {
   rationale: string[];
 }
 
+export type MemoSource = 'model' | 'template';
+
 export interface Recommendation {
   invoiceCid: string;
   description: string;
   amount: number;
   result: ScoringResult;
   memo: string;
+  memoSource?: MemoSource;
+}
+
+export interface Underwrite {
+  result: ScoringResult;
+  memo: string;
+  memoSource?: MemoSource;
 }
 
 export interface RoleView {

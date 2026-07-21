@@ -2,9 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import { createHash } from 'node:crypto';
 import * as ledger from './ledger';
-import { scoreInvoice } from './scoring/rules';
+import { scoreInvoice, defaultConfig } from './scoring/rules';
 import { explainScore, fallbackExplanation } from './scoring/explain';
-import { BuyerCreditProfile } from './scoring/types';
+import { BuyerCreditProfile, ScoringConfig } from './scoring/types';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const EXISTING_BOOK = 800000;
@@ -85,6 +85,14 @@ const scoreFor = (amount: number, tenorDays: number, buyerName: string, priorBoo
     { totalReceivables: EXISTING_BOOK + priorBook, buyerReceivables: priorBook },
   );
 
+const bidderScore = (amount: number, tenorDays: number, buyerName: string, risk: BidderRisk) =>
+  scoreInvoice(
+    { amount, tenorDays, buyer: buyerName },
+    profileFor(buyerName),
+    { totalReceivables: risk.book, buyerReceivables: risk.buyerExposure },
+    risk.config,
+  );
+
 const getOrAllocate = async (hint: string, known?: { identifier: string }[]): Promise<string> => {
   try {
     const list = known ?? (await ledger.listParties());
@@ -137,11 +145,15 @@ const sessionParties = async (sid: string, allocate: boolean): Promise<Parties |
   }
 };
 
-interface Bidder { key: string; name: string; party: string; spread: number; appetite: string; }
+interface BidderRisk { config: ScoringConfig; book: number; buyerExposure: number; }
+interface Bidder { key: string; name: string; party: string; appetite: string; risk: BidderRisk; }
 const BIDDERS: Omit<Bidder, 'party'>[] = [
-  { key: 'meridian', name: 'Meridian Capital', spread: 0.0, appetite: 'aggressive' },
-  { key: 'apex', name: 'Apex Credit', spread: 0.006, appetite: 'balanced' },
-  { key: 'cobalt', name: 'Cobalt Partners', spread: 0.013, appetite: 'conservative' },
+  { key: 'meridian', name: 'Meridian Capital', appetite: 'aggressive',
+    risk: { config: { ...defaultConfig, weights: { reliability: 0.35, concentration: 0.15, dilution: 0.2, size: 0.3 }, baseRateByBand: { A: 0.08, B: 0.14, C: 0.26, D: 0.4 }, sizeReference: 120000 }, book: 700000, buyerExposure: 100000 } },
+  { key: 'apex', name: 'Apex Credit', appetite: 'balanced',
+    risk: { config: { ...defaultConfig, weights: { reliability: 0.45, concentration: 0.2, dilution: 0.25, size: 0.1 }, baseRateByBand: { A: 0.12, B: 0.18, C: 0.28, D: 0.4 }, sizeReference: 320000 }, book: 1000000, buyerExposure: 180000 } },
+  { key: 'cobalt', name: 'Cobalt Partners', appetite: 'conservative',
+    risk: { config: { ...defaultConfig, weights: { reliability: 0.5, concentration: 0.15, dilution: 0.25, size: 0.1 }, baseRateByBand: { A: 0.13, B: 0.19, C: 0.3, D: 0.42 }, sizeReference: 900000, concentrationCap: 0.5 }, book: 3000000, buyerExposure: 200000 } },
 ];
 const sessionBidders = async (sid: string, allocate: boolean): Promise<Bidder[] | null> => {
   const key = sanitize(sid);
@@ -276,7 +288,7 @@ app.get('/api/view/:role', async (req, res) => {
           const amount = num(inv.amount);
           const result = scoreFor(amount, DEFAULT_TENOR, DISPLAY.buyer, priorBook);
           priorBook += amount;
-          return { invoiceCid: inv.contractId, description: inv.description, amount, result, memo: fallbackExplanation(result) };
+          return { invoiceCid: inv.contractId, description: inv.description, amount, result, memo: fallbackExplanation(result), memoSource: 'template' as const };
         });
     }
     res.json(body);
@@ -291,7 +303,8 @@ app.post('/api/score', async (req, res) => {
     return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
   }
   const result = scoreFor(amount, tenorDays, typeof buyer === 'string' && buyer ? buyer : DISPLAY.buyer, num(priorBook));
-  res.json({ result, memo: await explainScore(result) });
+  const explanation = await explainScore(result);
+  res.json({ result, memo: explanation.memo, memoSource: explanation.source });
 });
 
 app.post('/api/actions/invoice', async (req, res) => {
@@ -336,7 +349,8 @@ app.post('/api/actions/underwrite', async (req, res) => {
       return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
     }
     const result = scoreFor(amount, tenorDays, DISPLAY.buyer, 0);
-    res.json({ result, memo: await explainScore(result) });
+    const explanation = await explainScore(result);
+    res.json({ result, memo: explanation.memo, memoSource: explanation.source });
   } catch (e) { fail(res, e); }
 });
 
@@ -461,8 +475,8 @@ app.post('/api/auction/bid', async (req, res) => {
     const b = bidders.find((x) => x.key === bidderKey);
     if (!b) return res.status(404).json({ error: 'unknown bidder' });
     if (!finitePositive(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
-    const score = scoreFor(Number(amount), DEFAULT_TENOR, DISPLAY.buyer, 0);
-    const rate = Math.round((score.recommendedDiscountRate + b.spread) * 10000) / 10000;
+    const score = bidderScore(Number(amount), DEFAULT_TENOR, DISPLAY.buyer, b.risk);
+    const rate = score.recommendedDiscountRate;
     await ledger.create(b.party, 'FinancingProposal', {
       financier: b.party, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
       invoiceCid, faceAmount: String(Number(amount)), discountRate: String(rate),

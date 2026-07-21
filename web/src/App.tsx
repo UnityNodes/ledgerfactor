@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { action, fetchViews } from './api';
 import { mountBackground } from './background';
 import { AuctionBoard } from './AuctionBoard';
-import { Contract, Recommendation, RoleView, ScoringResult } from './types';
+import { Contract, Recommendation, RoleView, Underwrite } from './types';
 
 const money = (x: unknown): string =>
   '$' + Number(x ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -50,7 +50,7 @@ const InvoiceCard = ({ c }: { c: Contract }) => (
     <div className="figure">{money(c.amount)}</div>
     <div className="card-foot">
       <StatusPill status={String(c.status)} />
-      {c.financier ? <span className="tag tag-eye">listed to financier</span> : <span className="tag tag-dim">not yet listed</span>}
+      {Array.isArray(c.financiers) && c.financiers.length > 0 ? <span className="tag tag-eye">listed to financier</span> : <span className="tag tag-dim">not yet listed</span>}
     </div>
   </article>
 );
@@ -177,10 +177,10 @@ export const App = () => {
   const [description, setDescription] = useState('Q3 pallet delivery');
   const [stepIdx, setStepIdx] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [underwrite, setUnderwrite] = useState<{ result: ScoringResult; memo: string } | null>(null);
+  const [underwrite, setUnderwrite] = useState<Underwrite | null>(null);
   const invoiceCid = useRef<string | null>(null);
   const offerCid = useRef<string | null>(null);
-  const underwriteRef = useRef<{ result: ScoringResult; memo: string } | null>(null);
+  const underwriteRef = useRef<Underwrite | null>(null);
   const bgRef = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     if (!bgRef.current) return;
@@ -344,7 +344,9 @@ export const App = () => {
 
         {underwrite && (
           <div className="uw-strip">
-            <span className="uw-badge">AI</span>
+            <span className="uw-badge" title={underwrite.memoSource === 'model' ? 'memo written live by the model' : 'deterministic rule-based memo (model not called)'}>
+              {underwrite.memoSource === 'model' ? 'AI' : 'RULES'}
+            </span>
             <b>{underwrite.result.creditScore}/100 · band {underwrite.result.riskBand} · {underwrite.result.decision}</b>
             <span className="uw-rate">recommends {pct(underwrite.result.recommendedDiscountRate)}</span>
             <span className="uw-memo">{underwrite.memo.split('\n')[0]}</span>

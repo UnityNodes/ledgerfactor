@@ -50,9 +50,9 @@ interface ViewerMeta {
 }
 
 const APPETITE: Record<string, string> = {
-  aggressive: 'aggressive appetite · thin margins',
-  balanced: 'balanced appetite · fair rate',
-  conservative: 'conservative appetite · wide cushion',
+  aggressive: 'thin margins · prime small-ticket',
+  balanced: 'balanced book · mid-market',
+  conservative: 'deep capacity · large-ticket',
 };
 
 /* Deterministic hex text for a sealed envelope's scramble bleed. */
@@ -546,8 +546,8 @@ export function AuctionBoard() {
         open={open}
         rate={shownRate}
         faceAmount={amount}
-        winner={isWinner}
-        loser={isLoser}
+        winner={isWinner && winRateEntitled}
+        loser={isLoser && winRateEntitled}
         best={
           isSupplierView &&
           phase !== 'closed' &&
@@ -788,19 +788,21 @@ export function AuctionBoard() {
             </span>
           </div>
 
-          {view && (
+          {(view?.invoice || view?.receivable) && (
             <div className="vld-lot">
               <div className="vld-lot-l">
                 <div className="vld-lot-kicker">SEALED LOT · BUYER-APPROVED RECEIVABLE</div>
-                <div className="vld-lot-title">{view.invoice?.description ?? description}</div>
+                <div className="vld-lot-title">{view.invoice?.description ?? view.receivable?.description}</div>
               </div>
               <div className="vld-lot-face">
                 <div className="vld-lot-face-label">FACE VALUE</div>
-                <div className="vld-lot-face-val">{money(view.invoice?.amount ?? amount)}</div>
+                <div className="vld-lot-face-val">{money(view.invoice?.amount ?? view.receivable?.faceAmount)}</div>
               </div>
-              <span className="pill pill-confirmed vld-lot-pill">
-                {view.invoice?.status ?? 'OPEN'}
-              </span>
+              {view.invoice?.status && (
+                <span className={`pill pill-${String(view.invoice.status).toLowerCase()} vld-lot-pill`}>
+                  {view.invoice.status}
+                </span>
+              )}
             </div>
           )}
 
