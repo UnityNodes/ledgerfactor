@@ -35,8 +35,10 @@ sudo systemctl restart lf-sandbox        # cascades to json-api + server
 ```
 
 The Canton sandbox is in-memory, so every (re)start yields a fresh ledger. The
-server bootstrap is **idempotent**: it reuses existing parties and only seeds the
-demo scene when the ledger is empty, so a crash/restart never duplicates data.
+server allocates each session's parties on demand and reuses any that already
+exist, so a crash/restart never duplicates them, and it seeds no data at boot
+(the pre-built demo scene only appears when the `/api/actions/sample` endpoint is
+called).
 
 ## Caddy
 
@@ -73,5 +75,5 @@ A   ledgerfactor   <origin-ip>   (Proxied 🟠)
 cd web && npm run build && sudo cp -r dist/. /var/www/ledgerfactor/
 
 # backend / daml
-daml build && sudo systemctl restart lf-sandbox   # cascades + re-seeds
+daml build && sudo systemctl restart lf-sandbox   # cascades to json-api + server
 ```

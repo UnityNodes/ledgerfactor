@@ -28,11 +28,12 @@ Three guarantees are enforced by the ledger, not by the UI:
    reaches the buyer's participant node.
 2. **Single-financing uniqueness (anti-double-pledge).** Confirming an invoice makes
    the buyer co-sign a `BuyerAttestation`, keyed on `(supplier, invoiceNumber)` and
-   carrying the buyer and the amount. Accepting financing checks that a matching
-   attestation exists and that its buyer and amount equal the invoice's, so a supplier
-   cannot finance an invoice the buyer never signed, nor inflate one the buyer did. The
-   key admits each number once, and the settled receivable is keyed the same way, so one
-   receivable can never be financed twice and a confirmation cannot be forged.
+   carrying the buyer and the amount. Turning a proposal into an offer (`AcceptProposal`)
+   checks that a matching attestation exists and that its buyer and amount equal the
+   invoice's, so no offer can exist for an invoice the buyer never signed, nor one that
+   inflates what the buyer did sign. The key admits each number once, and the settled
+   receivable is keyed the same way, so one receivable can never be financed twice and a
+   confirmation cannot be forged.
 3. **Atomic DvP.** Assigning the receivable and paying the supplier the discounted
    cash settle in a single transaction.
 
