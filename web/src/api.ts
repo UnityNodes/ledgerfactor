@@ -6,7 +6,9 @@ const sessionId = (): string => {
   try {
     let s = localStorage.getItem('lf_sid');
     if (!s) {
-      s = 'lf' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      s = 'lf' + (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, '')
+        : Math.random().toString(36).slice(2, 10) + Date.now().toString(36));
       localStorage.setItem('lf_sid', s);
     }
     return s;
