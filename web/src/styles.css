@@ -1253,7 +1253,7 @@ h1 .brass {
   100% { box-shadow: 0 0 0 1px var(--brass-dim), 0 26px 60px -34px rgba(243, 255, 151, 0.7), inset 0 1px 0 rgba(247, 255, 194, 0.2); }
 }
 .vld-env-winner .vld-env-paper {
-  border-color: var(--brass-dim);
+  border-color: var(--brass-dim); min-height: 210px;
   background: radial-gradient(120% 90% at 50% 0%, rgba(243, 255, 151, 0.12), transparent 62%), linear-gradient(180deg, #100f0a, #0a0b08);
 }
 .vld-env-winner .vld-env-flap {
