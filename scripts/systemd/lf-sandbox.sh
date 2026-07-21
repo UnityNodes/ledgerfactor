@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export PATH="/home/ledgerfactor/.daml/bin:/usr/bin:/bin"
-export HOME=/home/ledgerfactor
-cd /root/ledgerfactor
+export HOME="${HOME:-/home/$(id -un)}"
+export PATH="$HOME/.daml/bin:/usr/bin:/bin:${PATH:-}"
+cd "$(cd "$(dirname "$0")/../.." && pwd)"
 
 DAR=.daml/dist/ledgerfactor-0.1.0.dar
 [ -f "$DAR" ] || daml build

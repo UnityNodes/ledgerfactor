@@ -23,8 +23,8 @@ Caddy  ledgerfactor.unitynodes.com  (CF Origin cert *.unitynodes.com)
 
 ## systemd services
 
-Three units in `/etc/systemd/system/` (sources in `scripts/systemd/`), all
-`User=ledgerfactor`, `Restart=always`, enabled on boot. The chain is ordered and
+Three units in `/etc/systemd/system/` (sources in `scripts/systemd/`), all run
+under a dedicated service user, `Restart=always`, enabled on boot. The chain is ordered and
 cascades: `lf-jsonapi` and `lf-server` are `PartOf` / `Requires` their
 dependency, so restarting `lf-sandbox` restarts the whole chain.
 
