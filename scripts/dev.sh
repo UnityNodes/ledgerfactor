@@ -24,8 +24,8 @@ echo "      json api ready"
 
 echo "[4/5] starting server + AI scoring on :8080 ..."
 ( cd server && npm install --silent && LF_PACKAGE_ID="$PKG" npm start >/tmp/lf-server.log 2>&1 & )
-until curl -s localhost:8080/api/health 2>/dev/null | grep -q '"seeded":true'; do sleep 1; done
-echo "      server seeded the demo scene"
+until curl -s localhost:8080/api/health 2>/dev/null | grep -q '"ready":true'; do sleep 1; done
+echo "      server ready"
 
 echo "[5/5] starting web UI on :5173 ..."
 ( cd web && npm install --silent && npm run dev >/tmp/lf-web.log 2>&1 & )
