@@ -89,7 +89,7 @@ const RedactionCard = ({ margin }: { margin: number | null }) => (
     </div>
     <div className="redacted-note">
       Withheld by the Canton ledger from this participant.
-      {margin != null && <span className="redacted-sub"> A {pct(margin)} margin exists on a contract this party is not a stakeholder of.</span>}
+      {margin != null && <span className="redacted-sub"> A margin exists on a contract this party is not a stakeholder of.</span>}
     </div>
   </article>
 );
