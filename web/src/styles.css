@@ -1426,6 +1426,10 @@ h1 .brass {
   .vld-hero { gap: 22px; }
   .vld-hero-line { gap: 16px; }
   .vld-identity-ledger { margin-left: 0; }
+  .vld-deck-actions { flex-direction: column; align-items: stretch; }
+  .vld-deck-actions .btn { flex: 0 0 auto; width: 100%; white-space: normal; text-align: center; }
+  .vld-identity-badge { white-space: normal; }
+  .vld-identity-claim { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .vld-wrap, .vld-viewas, .vld-collect, .vld-hero, .vld-identity, .vld-verdict,
