@@ -236,7 +236,7 @@ const fail = (res: express.Response, e: unknown) => {
   res.status(badInput ? 400 : 500).json({ error: badInput ? 'invalid request' : 'ledger operation failed' });
 };
 
-const inRange = (v: unknown): boolean => (typeof v === 'number' || typeof v === 'string') && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) < 1e15;
+const inRange = (v: unknown): boolean => (typeof v === 'number' || typeof v === 'string') && Number.isFinite(Number(v)) && Number(v) >= 1e-10 && Number(v) < 1e15;
 const positiveAmount = (v: unknown): boolean => v === undefined || inRange(v);
 const finitePositive = (v: unknown): boolean => inRange(v);
 const nonEmptyString = (v: unknown): boolean => typeof v === 'string' && v.length > 0;
