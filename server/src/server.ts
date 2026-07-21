@@ -284,7 +284,9 @@ app.get('/api/view/:role', async (req, res) => {
 });
 
 app.post('/api/score', async (req, res) => {
-  const { amount, tenorDays, buyer, priorBook } = req.body ?? {};
+  const { buyer, priorBook } = req.body ?? {};
+  const amount = Number(req.body?.amount);
+  const tenorDays = Number(req.body?.tenorDays);
   if (!finitePositive(amount) || !finitePositive(tenorDays) || !Number.isFinite(num(priorBook)) || num(priorBook) < 0) {
     return res.status(400).json({ error: 'amount and tenorDays must be positive numbers' });
   }
@@ -300,7 +302,7 @@ app.post('/api/actions/invoice', async (req, res) => {
     if (!positiveAmount(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
     const inv = await ledger.create(p.supplier, 'Invoice', {
       supplier: p.supplier, buyer: p.buyer, financiers: [],
-      amount: String(amount ?? 100000), invoiceNumber: invoiceNumber(), description: description || 'New receivable', status: 'Issued',
+      amount: String(Number(amount ?? 100000)), invoiceNumber: invoiceNumber(), description: description || 'New receivable', status: 'Issued',
     });
     res.json({ invoiceCid: inv.contractId });
   } catch (e) { fail(res, e); }
@@ -348,7 +350,7 @@ app.post('/api/actions/offer', async (req, res) => {
     if (!p) return res.status(503).json({ error: 'not ready' });
     const prop = await ledger.create(p.financier, 'FinancingProposal', {
       financier: p.financier, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
-      invoiceCid, faceAmount: String(faceAmount), discountRate: String(discountRate),
+      invoiceCid, faceAmount: String(Number(faceAmount)), discountRate: String(Number(discountRate)),
     });
     let offerCid: string;
     try {
@@ -369,7 +371,7 @@ app.post('/api/actions/finance', async (req, res) => {
     }
     const p = await sessionParties(sidOf(req), true);
     if (!p) return res.status(503).json({ error: 'not ready' });
-    const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: String(faceAmount) });
+    const cash = await ledger.create(p.financier, 'Cash', { owner: p.financier, amount: String(Number(faceAmount)) });
     let result: unknown;
     try {
       result = await ledger.exercise(p.financier, 'FinancingOffer', offerCid, 'AcceptFinancing', { financierCashCid: cash.contractId });
@@ -441,7 +443,7 @@ app.post('/api/auction/open', async (req, res) => {
     if (!positiveAmount(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
     const inv = await ledger.create(p.supplier, 'Invoice', {
       supplier: p.supplier, buyer: p.buyer, financiers: [],
-      amount: String(amount ?? 100000), invoiceNumber: invoiceNumber(), description: description || 'Auction receivable', status: 'Issued',
+      amount: String(Number(amount ?? 100000)), invoiceNumber: invoiceNumber(), description: description || 'Auction receivable', status: 'Issued',
     });
     const confirmed = await ledger.exercise(p.buyer, 'Invoice', inv.contractId, 'Confirm', {});
     const listed = await ledger.exercise(p.supplier, 'Invoice', confirmed, 'ListForFinancing', { newFinanciers: bidders.map((b) => b.party) });
@@ -463,7 +465,7 @@ app.post('/api/auction/bid', async (req, res) => {
     const rate = Math.round((score.recommendedDiscountRate + b.spread) * 10000) / 10000;
     await ledger.create(b.party, 'FinancingProposal', {
       financier: b.party, supplier: p.supplier, buyer: p.buyer, auditor: p.auditor,
-      invoiceCid, faceAmount: String(amount), discountRate: String(rate),
+      invoiceCid, faceAmount: String(Number(amount)), discountRate: String(rate),
     });
     res.json({ bidderKey, name: b.name, rate, score: score.creditScore, band: score.riskBand });
   } catch (e) { fail(res, e); }
