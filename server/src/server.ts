@@ -574,6 +574,9 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   console.error('[http]', err && err.message ? err.message : err);
   if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'invalid JSON body' });
   if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'request body too large' });
+  if (err && (err instanceof RangeError || err instanceof SyntaxError || err.status === 400 || err.statusCode === 400)) {
+    return res.status(400).json({ error: 'invalid request body' });
+  }
   res.status(500).json({ error: 'internal error' });
 });
 
