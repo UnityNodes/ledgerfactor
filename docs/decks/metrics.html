@@ -1,0 +1,123 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="op.css">
+<style>
+.page{padding-top:44px}
+h1.big{margin-top:30px;font-size:37px}
+.intro{margin-top:16px;font-size:12px}
+.sec{margin-top:15px}
+.stext{margin-top:6px;font-size:11px;line-height:1.5}
+.bullets{gap:7px}
+table{margin-top:11px;font-size:10px}
+th{padding-bottom:8px} td{padding:7px 12px 7px 0}
+.tiles{margin-top:12px}
+.tile{padding:12px 14px}
+.tile .tn{font-size:21px} .tile .tc{font-size:9px;margin-top:5px}
+pre.code{margin-top:11px;padding:13px 16px;font-size:10px;line-height:1.65}
+.bullets{margin-top:9px} .bullets .b{font-size:11px}
+.two{margin-top:11px} .two .k{font-size:11px}
+.foot{bottom:24px}
+</style></head><body>
+
+<section class="page">
+  <div class="ph"><div class="brand">Ledger<span class="d">Factor</span></div><div class="plabel">Metrics / Validation Evidence</div></div>
+  <div class="rule"></div>
+  <h1 class="big">We have no users yet.<br><span class="l2">We have something better: proof.</span></h1>
+  <p class="intro">This is a hackathon build, so we will not dress up vanity metrics. What we can offer is stronger than traction claims: every property this project asserts is proven on the ledger by automated tests, and the system is live right now, so you can reproduce every number on this page yourself in under a minute.</p>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">01</span><span class="stitle">Proven, not asserted</span></div>
+    <p class="stext">Nine Daml Script tests. Each one queries the ledger <b>as each party</b>, so the result is the ledger's answer, not the UI's. Latest run, Daml SDK 2.10.4:</p>
+    <table>
+      <tr><th style="width:30%">Test</th><th style="width:44%">What it proves</th><th style="width:8%">Result</th><th>Ledger activity</th></tr>
+      <tr><td>testSelectiveDisclosure</td><td>The buyer queries for the financing terms and gets nothing. Margin reaches only supplier and financier.</td><td class="lime">ok</td><td>3 contracts, 4 tx</td></tr>
+      <tr><td>testNoDoubleFinancing</td><td>Two offers on one invoice. The first consumes it; the second is rejected by the ledger.</td><td class="lime">ok</td><td>6 contracts, 11 tx</td></tr>
+      <tr><td>testHappyPathSettlement</td><td>Atomic DvP: supplier paid 97,000 on a 100,000 invoice, original receivable gone, auditor sees face value only.</td><td class="lime">ok</td><td>4 contracts, 7 tx</td></tr>
+      <tr><td>testSealedBidAuction</td><td>Each bidder sees only its own sealed bid, the supplier sees all three, the buyer sees none, losers cannot double-finance.</td><td class="lime">ok</td><td>6 contracts, 10 tx</td></tr>
+      <tr><td>setupParties</td><td>Party allocation harness.</td><td class="lime">ok</td><td>0 contracts</td></tr>
+    </table>
+    <p class="stext" style="margin-top:10px;color:var(--mute)">Also proven, not shown: testNoDoublePledgeAcrossContracts, testForgedConfirmationCannotFinance, testForgedAmountCannotFinance, testForgedBuyerCannotFinance, testFaceAmountMustMatchInvoice &mdash; ten scripts in all, every one green.</p>
+    <div class="tiles">
+      <div class="tile hl"><div class="tn">9 / 9</div><div class="tc">Daml Script proofs passing</div></div>
+      <div class="tile"><div class="tn">100%</div><div class="tc">internal templates created (6 of 6)</div></div>
+      <div class="tile"><div class="tn">60.0%</div><div class="tc">template choices exercised (6 of 10)</div></div>
+      <div class="tile"><div class="tn">10 / 10</div><div class="tc">unit tests, AI scoring engine</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">02</span><span class="stitle">Measured on the live system, today</span></div>
+    <p class="stext">Not a local script. Persistent systemd services behind Caddy and Cloudflare, deployed continuously since 2026-07-07:</p>
+    <div class="tiles" style="grid-template-columns:repeat(3,1fr)">
+      <div class="tile hl"><div class="tn" style="font-size:19px">since 2026-07-07</div><div class="tc">persistent services, Restart=always; the in-memory ledger re-seeds on any restart</div></div>
+      <div class="tile"><div class="tn">14&ndash;24 ms</div><div class="tc">party-scoped query latency, measured</div></div>
+      <div class="tile"><div class="tn">4</div><div class="tc">isolated 4-party sets held concurrently</div></div>
+    </div>
+    <p class="stext" style="margin-top:14px">Every browser session is allocated its own four Canton parties, so concurrent judges never collide and cannot see each other's deals. That isolation is itself a demonstration of the privacy model.</p>
+  </div>
+
+  <div class="foot"><span>LedgerFactor · Metrics and validation evidence</span><span>ledgerfactor.unitynodes.com</span></div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="brand">Ledger<span class="d">Factor</span></div><div class="plabel">Metrics / Validation Evidence</div></div>
+  <div class="rule"></div>
+
+  <div class="sec" style="margin-top:26px">
+    <div class="sh"><span class="snum">03</span><span class="stitle">The measurement, reproduced live</span></div>
+    <p class="stext">We drove one deal to the offer step on the running system and then asked the ledger, as each party, whether it can see the 1.97% margin. This is the raw result:</p>
+    <pre class="code">$ for r in supplier buyer financier auditor; do curl -s .../api/view/$r; done
+
+  supplier    margin = <span class="vis">VISIBLE  0.0197</span>    (24 ms)
+  buyer       margin =  not disclosed     (17 ms)
+  financier   margin = <span class="vis">VISIBLE  0.0197</span>    (16 ms)
+  auditor     margin =  not disclosed     (14 ms)</pre>
+    <p class="stext" style="margin-top:12px">The buyer and auditor party views are not stakeholders of the contract carrying the rate, so the ledger never sends it to them. There is no filter in our code to trust or audit.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">04</span><span class="stitle">Verify it yourself, in one minute</span></div>
+    <pre class="code">git clone &lt;repo&gt; &amp;&amp; daml test          # the 9 proofs above, no services needed
+open https://ledgerfactor.unitynodes.com   # hit Auto-play, watch 4 party views diverge
+switch to "Sealed auction · Veild"         # flip View-as, rivals stay sealed</pre>
+    <p class="stext" style="margin-top:12px;color:var(--mute)">We would rather you reproduce it than believe us. That is the entire point of putting the proofs in Daml Script instead of in a slide.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">05</span><span class="stitle">Market validation, stated honestly</span></div>
+    <div class="two">
+      <div class="k">
+        <div class="bullets">
+          <div class="b"><div>Receivables finance is a <b>multi-trillion dollar annual turnover</b> market (FCI publishes the global factoring statistics).</div></div>
+          <div class="b"><div>Duplicate financing and invoice fraud are <b>documented, recurring</b> risks in factoring and supply-chain finance.</div></div>
+          <div class="b"><div>Institutional tokenization is arriving on Canton: Zeconomy joined as a validator, Bitwave is a Super Validator.</div></div>
+        </div>
+      </div>
+      <div class="k" style="color:var(--mute)"><b style="color:var(--ink)">What we deliberately do not claim.</b> There is no single authoritative figure for global double-pledge losses, so we do not invent one. And institutional players being present on Canton is not the same as documented demand for factoring on Canton. We treat that as an inference, not evidence.</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">06</span><span class="stitle">What we have NOT validated</span></div>
+    <p class="stext">The honest gaps, because a judge will find them anyway:</p>
+    <div class="bullets">
+      <div class="b"><div>No users, no revenue, no design partner, no signed pilot.</div></div>
+      <div class="b"><div>The cash leg is a mock owner-signed holding. The DvP atomicity is real; real token-standard settlement is the next step.</div></div>
+      <div class="b"><div>Listing reveals the financier's identity to the buyer. The sensitive figure, the pricing, stays hidden. Undisclosed factoring would need explicit disclosure.</div></div>
+      <div class="b"><div>Canton has no supplier self-service base today, so first users would arrive through a financier or an anchor buyer.</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">07</span><span class="stitle">What would actually validate this</span></div>
+    <p class="stext">A 2 to 4 week sandbox pilot: one buyer, three suppliers, one financier, 10 to 20 anonymized real invoices run end to end. It passes only if all three hold:</p>
+    <div class="bullets">
+      <div class="b"><div>The buyer's party view <b>never receives</b> the margin, verified by querying the buyer's participant.</div></div>
+      <div class="b"><div>A double-pledge attempt is <b>rejected on-ledger</b>, not caught by a report.</div></div>
+      <div class="b"><div>The financier <b>signs off</b> on the AI rate recommendations as commercially usable.</div></div>
+    </div>
+    <p class="stext" style="margin-top:12px;color:var(--mute)">Those are falsifiable criteria with a real counterparty. Until they are met, we call this what it is: a working, provable prototype, not traction.</p>
+  </div>
+
+  <div class="foot"><span>LedgerFactor · Daml 2.10.4 · Canton · Apache 2.0</span><span>ledgerfactor.unitynodes.com</span></div>
+</section>
+
+</body></html>

@@ -1,0 +1,90 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="op.css"></head><body>
+
+<section class="page">
+  <div class="ph"><div class="brand">Ledger<span class="d">Factor</span></div><div class="plabel">Go-to-Market</div></div>
+  <div class="rule"></div>
+  <h1 class="big">Do not sell to suppliers.<br><span class="l2">Land the buyer.</span></h1>
+  <p class="intro">Selling factoring supplier by supplier is a treadmill: high acquisition cost, small tickets, no network effect. So we invert it. One investment-grade buyer's supplier network is the distribution channel, and the buyer costs nothing to serve. This is the single decision the whole go-to-market rests on.</p>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">01</span><span class="stitle">The motion: buyer-led supply-chain finance</span></div>
+    <p class="stext">Land one anchor buyer. Onboard its supplier tail. Bring one or two financiers to compete for that paper. Suppliers arrive <b>pre-qualified</b>, because their receivable is already buyer-approved, which is exactly the precondition our model needs. The first deal is closeable because all three sides gain at the same moment:</p>
+    <div class="cardrow">
+      <div class="cbox"><div class="cl">Anchor buyer</div><div class="ct">Pays nothing</div><p>A healthier supply chain at zero cost. It still pays face value at maturity, to whoever holds the receivable, and never sees the pricing.</p></div>
+      <div class="cbox"><div class="cl">Supplier</div><div class="ct">Cheaper, quiet cash</div><p>Same-day liquidity at a confidential price. No distress signal leaks to the buyer, so the commercial relationship is not repriced.</p></div>
+      <div class="cbox"><div class="cl">Financier (pays us)</div><div class="ct">De-risked flow</div><p>Pre-underwritten paper it cannot double-fund, at a lower loss ratio and lower underwriting cost.</p></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">02</span><span class="stitle">Unit economics, from the live demo</span></div>
+    <div class="box" style="margin-top:14px">
+      <div class="boxlabel">One invoice, 60 day tenor</div>
+      <div class="stat">
+        <div><div class="num">$100,000</div><div class="cap">invoice face value</div></div>
+        <div><div class="num">$98,030</div><div class="cap">advanced to supplier, today</div></div>
+        <div><div class="num">$1,970</div><div class="cap">financier spread at 1.97%</div></div>
+        <div><div class="num">~12%</div><div class="cap">annualised to the financier</div></div>
+      </div>
+      <p class="boxnote">We take a few bps of financed volume, a slice of that discount, and/or SaaS for the AI underwriting workstation. We sit in the flow of funds, and we lower the financier's loss ratio (double pledging is impossible) and underwriting cost (the agent), so we capture part of the value we create. An optional supplier origination fee is a secondary line.</p>
+    </div>
+    <p class="stext" style="margin-top:12px;color:var(--mute)">Illustrative only, not a forecast: at 25 bps of financed volume, a financier running a $50M annual receivables book generates about $125k of revenue for us. We have no book and no signed financier yet, so treat this as the shape of the model, not a projection.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">03</span><span class="stitle">Why now</span></div>
+    <div class="bullets">
+      <div class="b"><div>Higher rates and tighter credit have increased demand for monetising receivables.</div></div>
+      <div class="b"><div>Privacy-preserving institutional rails are finally practical: Canton plus the CIP-0056 token standard.</div></div>
+      <div class="b"><div>Duplicate pledging is a standing, unsolved pain that shared-state verification actually fixes, rather than reports after the fact.</div></div>
+    </div>
+  </div>
+
+  <div class="foot"><span>LedgerFactor · Go-to-market plan and channels</span><span>ledgerfactor.unitynodes.com</span></div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="brand">Ledger<span class="d">Factor</span></div><div class="plabel">Go-to-Market</div></div>
+  <div class="rule"></div>
+
+  <div class="sec" style="margin-top:26px">
+    <div class="sh"><span class="snum">04</span><span class="stitle">The sequence</span></div>
+    <div class="items">
+      <div class="item"><span class="n">01</span><div><b>Sandbox pilot &nbsp;·&nbsp; 2 to 4 weeks.</b> One buyer, three suppliers, one financier on a Canton validator. Run 10 to 20 anonymized real invoices through create, finance and settle. Passes only if: the buyer's party view never receives the margin; a double-pledge attempt is rejected on-ledger; the financier signs off on the AI rate recommendations.</div></div>
+      <div class="item"><span class="n">02</span><div><b>Limited production &nbsp;·&nbsp; 6 to 8 weeks.</b> Connect the financier's real cash rail (token-standard DvP or a flat PSP bridge). Go live with a capped book of $2M to $5M. Targets: advance in under one business day; zero double-pledge losses.</div></div>
+      <div class="item"><span class="n">03</span><div><b>Scale into a marketplace &nbsp;·&nbsp; after.</b> Add a second competing financier, which is what turns on Veild, our sealed-bid mode: suppliers shop the receivable and no financier sees a rival's price. Then supplier self-onboarding, then cross-border, where confidentiality and atomic settlement matter most, then adjacent products such as PO finance and dynamic discounting.</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">05</span><span class="stitle">Channels: where we actually reach them</span></div>
+    <p class="stext">These buyers are not on crypto Twitter. They are reachable through the trade-finance industry itself.</p>
+    <div class="def">
+      <div class="r"><div class="dk">Industry bodies</div><div>FCI (Factors Chain International), ICC, BAFT, ITFA.</div></div>
+      <div class="r"><div class="dk">Events</div><div>SIBOS, GTR conferences, Supply Chain Finance Community.</div></div>
+      <div class="r"><div class="dk">Press</div><div>Trade Finance Global, Global Trade Review, ICC publications.</div></div>
+      <div class="r"><div class="dk">Inside a bank</div><div>Receivables and factoring desks, treasury and working-capital teams, innovation groups.</div></div>
+      <div class="r"><div class="dk">Canton-native</div><div>Our first counterparty is likely already on Canton. Institutional tokenization is arriving (Zeconomy as validator, Bitwave as Super Validator), so we ride an existing institutional relationship instead of acquiring SMEs cold.</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">06</span><span class="stitle">Beachhead</span></div>
+    <p class="stext">Manufacturing and logistics first: long DSO, concentrated investment-grade buyers, high invoice values, and genuine exposure to duplicate-assignment loss. That is where confidentiality and structural uniqueness are worth paying for. We deliberately skip micro-SMEs with one-off invoices, retail credit, and anyone whose pricing is already public, because the product creates no value there.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">07</span><span class="stitle">Honest state, and the next three moves</span></div>
+    <p class="stext">No design partner is signed, no pilot has run, and there is no book. The go-to-market above is a plan, not a report. The next three concrete actions, in order:</p>
+    <div class="bullets">
+      <div class="b"><div>One <b>financier design partner</b> conversation (specialty finance or a bank receivables desk). They are the payer, so they come first.</div></div>
+      <div class="b"><div>One <b>anchor buyer</b> introduction, through that financier's existing book rather than cold.</div></div>
+      <div class="b"><div>Run the <b>sandbox pilot criteria</b> against real anonymized invoices, and publish whether it passed or failed.</div></div>
+    </div>
+    <p class="stext" style="margin-top:12px;color:var(--mute)">The product is already live and provable, so the bottleneck is not engineering. It is one financier saying yes.</p>
+  </div>
+
+  <div class="foot"><span>LedgerFactor · Buyer-led supply-chain finance</span><span>ledgerfactor.unitynodes.com</span></div>
+</section>
+
+</body></html>

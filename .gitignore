@@ -18,3 +18,7 @@ log/
 # internal working material, not for the public repo
 docs/research/
 docs/design/
+
+# deck build: fonts are copied from web/dist at render time; intermediate output
+docs/decks/fonts/
+docs/decks/out-*.pdf

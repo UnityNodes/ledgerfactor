@@ -1,0 +1,84 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="op.css"></head><body>
+
+<section class="page">
+  <div class="ph"><div class="brand">Ledger<span class="d">Factor</span></div><div class="plabel">Value / Problem Statement</div></div>
+  <div class="rule"></div>
+  <h1 class="big">The price is private.<br><span class="l2">The proof is in the ledger.</span></h1>
+  <p class="intro">Confidential invoice financing on Canton. Suppliers turn buyer-approved invoices into same-day cash from competing financiers, without leaking their cost of capital to the buyer, and with the ledger structurally preventing the same invoice from being financed twice.</p>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">01</span><span class="stitle">The problem</span></div>
+    <p class="stext">Mid-market suppliers wait 30 to 90 days to be paid; working capital sits trapped in receivables. Factoring exists, but three structural flaws keep it expensive and risky:</p>
+    <div class="items">
+      <div class="item"><span class="n">01</span><div><b>Pricing leaks.</b> When a buyer can see the discount a supplier accepts, it reads supplier distress and squeezes commercial terms. Confidentiality of the margin is commercially load-bearing, not a nicety.</div></div>
+      <div class="item"><span class="n">02</span><div><b>Double-pledge fraud.</b> The same receivable financed to two lenders is a classic loss vector, policed today by registries and manual checks that race each other, cost money, and still fail.</div></div>
+      <div class="item"><span class="n">03</span><div><b>Reconciliation-heavy settlement</b> across institutions that do not share a database and do not fully trust each other.</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">02</span><span class="stitle">Why it matters</span></div>
+    <p class="stext">Receivables finance is a multi-trillion dollar annual market, and the controls that keep it honest are procedural rather than structural: trust, registries, and manual verification. Even low single-digit loss or dispute rates can erase a lender's margin. And the leak is not incidental, because in this market the price is the sensitive datum. Today a supplier must choose between cash flow and confidentiality. That choice is an artefact of the plumbing, not a law of finance.</p>
+  </div>
+
+  <div class="box">
+    <div class="boxlabel">One deal, real numbers from the live demo</div>
+    <div class="stat">
+      <div><div class="num">$98,030</div><div class="cap">advanced to the supplier, today</div></div>
+      <div><div class="num">$1,970</div><div class="cap">financier spread (about 12% APR)</div></div>
+      <div><div class="num">1.97%</div><div class="cap">discount, visible to 2 of 4 parties</div></div>
+    </div>
+    <p class="boxnote">A $100,000 buyer-approved invoice, 60 day tenor. The buyer and the auditor never receive the rate: <b>their party views are not stakeholders</b> of the contract that carries it.</p>
+  </div>
+
+  <div class="foot"><span>LedgerFactor · Confidential invoice financing on Canton</span><span>ledgerfactor.unitynodes.com</span></div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="brand">Ledger<span class="d">Factor</span></div><div class="plabel">Value / Problem Statement</div></div>
+  <div class="rule"></div>
+
+  <div class="sec" style="margin-top:26px">
+    <div class="sh"><span class="snum">03</span><span class="stitle">What we built, and the value</span></div>
+    <p class="stext">A supplier sells a buyer-approved invoice to a financier at a discount. Three guarantees are enforced by the ledger, not by the interface:</p>
+    <div class="items">
+      <div class="item"><span class="n">01</span><div><b>Selective disclosure.</b> The discount rate lives on a contract whose only stakeholders are the financier and the supplier. The buyer is never a stakeholder, so the margin never reaches the buyer's party view. Same invoice, <b>four party views</b>, two different pictures.</div></div>
+      <div class="item"><span class="n">02</span><div><b>Single-exercise anti-double-pledge.</b> The invoice is one authoritative contract and financing is a consuming choice, so a second financing attempt is rejected by the ledger itself. Double pledging is structurally impossible, not merely policed.</div></div>
+      <div class="item"><span class="n">03</span><div><b>Atomic DvP.</b> The supplier is paid and the receivable is assigned in a single transaction. Credit and payment never drift apart.</div></div>
+    </div>
+    <p class="stext" style="margin-top:13px">An AI credit-scoring agent underwrites the receivable over only the data the financier is entitled to see, and a second mode, Veild, runs a sealed-bid auction in which no financier can see a rival's bid and losing bids are never revealed.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">04</span><span class="stitle">Who gains what</span></div>
+    <div class="two">
+      <div class="k"><b>Supplier.</b> Same-day liquidity at a confidential price. The buyer cannot infer distress and reprice the relationship.</div>
+      <div class="k"><b>Buyer.</b> A healthier supply chain at zero cost, and it still pays face value at maturity to whoever holds the receivable.</div>
+      <div class="k"><b>Financier.</b> A lower loss ratio (double pledging is impossible, not audited after the fact) and lower underwriting cost via the agent.</div>
+      <div class="k"><b>Auditor.</b> Oversight of existence, uniqueness and settlement, without ever seeing commercially sensitive pricing.</div>
+    </div>
+    <p class="stext" style="margin-top:14px">Incentives align cleanly: confidentiality protects the supplier, structural uniqueness protects the financier, and atomic DvP protects both.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">05</span><span class="stitle">Why this needs Canton</span></div>
+    <table>
+      <tr><th style="width:32%">Requirement</th><th style="width:20%">Public chain</th><th style="width:24%">Shared database</th><th>Canton</th></tr>
+      <tr><td>Margin invisible to the buyer</td><td class="rose">Leaks</td><td>A revocable permission</td><td>Never reaches the party view</td></tr>
+      <tr><td>Same invoice financed only once</td><td>Visible, not enforced</td><td>Policy or registry</td><td>Consuming contract, rejected</td></tr>
+      <tr><td>Atomic DvP across rival institutions</td><td>Yes</td><td class="lilac">Needs a trusted operator</td><td>Yes</td></tr>
+      <tr><td>Regulator audit without pricing</td><td class="rose">No</td><td>Partial</td><td>Selective disclosure</td></tr>
+    </table>
+    <p class="stext" style="margin-top:14px">A database gives no cross-institution guarantee; a public chain gives guarantees but destroys confidentiality, where sealed bids would leak through logs before the reveal. Canton is the only place both hold at once.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><span class="snum">06</span><span class="stitle">Proof, not assertion</span></div>
+    <p class="stext">Every claim above is proven by Daml Script tests that query the ledger as each party: the buyer queries for the financing terms and gets nothing, a second financing on the same invoice is rejected on-ledger, and settlement moves cash and receivable atomically. The whole system is live and interactive, running as persistent services, not a local script.</p>
+    <p class="stext" style="margin-top:11px;color:var(--mute)">Honest scope: the cash leg is a mock owner-signed holding standing in for a token-standard holding. The DvP atomicity is real; real token-standard settlement is the next step.</p>
+  </div>
+
+  <div class="foot"><span>LedgerFactor · Daml · Canton · Apache 2.0</span><span>ledgerfactor.unitynodes.com</span></div>
+</section>
+
+</body></html>
