@@ -26,15 +26,15 @@ interface Step {
 }
 const STEPS: Step[] = [
   { key: 'issue', label: 'Issue', cta: 'Supplier issues the invoice',
-    note: 'The supplier creates the receivable on the ledger. It shows up on the Supplier and Buyer nodes - the Financier cannot see it yet.' },
+    note: 'The supplier creates the receivable on the ledger. It shows up in the Supplier and Buyer party views - the Financier cannot see it yet.' },
   { key: 'confirm', label: 'Confirm', cta: 'Buyer confirms the payable',
     note: 'Only the buyer can approve. This is the buyer accepting that it owes this amount.' },
   { key: 'list', label: 'List', cta: 'Supplier lists it to the financier',
-    note: 'The supplier discloses the invoice to a chosen financier. Now - and only now - the financier’s node can read it, which is what lets the AI underwrite it.' },
+    note: 'The supplier discloses the invoice to a chosen financier. Now - and only now - the financier’s party view can read it, which is what lets the AI underwrite it.' },
   { key: 'underwrite', label: 'Underwrite', cta: 'AI agent underwrites the risk',
     note: 'The scoring agent reads the invoice the financier is entitled to see and recommends a discount rate and a decision.' },
   { key: 'offer', label: 'Offer', cta: 'Financier makes the offer',
-    note: '★ Watch the four columns. The MARGIN card appears only on Supplier and Financier. Buyer and Auditor get a redaction bar - the ledger never sends the rate to their nodes.' },
+    note: '★ Watch the four columns. The MARGIN card appears only on Supplier and Financier. Buyer and Auditor get a redaction bar - the ledger never sends the rate to their party views.' },
   { key: 'finance', label: 'Settle', cta: 'Financier funds - atomic DvP',
     note: 'Cash to the supplier and the receivable to the financier, in one transaction. The original invoice is consumed, so it can never be financed twice. The auditor sees face value only.' },
 ];
@@ -162,9 +162,9 @@ const Panel = ({ view, margin }: { view: RoleView; margin: number | null }) => {
           : margin != null && <RedactionCard margin={margin} />}
         {(g.FinancedReceivable ?? []).map((c) => <ReceivableCard key={c.contractId} c={c} />)}
         {(g.Cash ?? []).map((c) => <CashCard key={c.contractId} c={c} />)}
-        {total === 0 && margin == null && <div className="empty">nothing on this node yet</div>}
+        {total === 0 && margin == null && <div className="empty">nothing in this party’s view yet</div>}
       </div>
-      <footer className="panel-foot">{total} contract{total === 1 ? '' : 's'} on this participant’s node</footer>
+      <footer className="panel-foot">{total} contract{total === 1 ? '' : 's'} in this party’s view</footer>
     </section>
   );
 };
@@ -361,7 +361,7 @@ export const App = () => {
           <span className="spot-text">
             The <b className="brass">{pct(margin)}</b> margin is now on the ledger - but it only appears in the
             <b> Supplier</b> and <b> Financier</b> columns. <b className="rose">Buyer</b> and <b className="rose">Auditor</b> get a
-            redaction bar; their nodes never received the rate.
+            redaction bar; their party views never received the rate.
           </span>
         </div>
       )}

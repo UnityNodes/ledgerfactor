@@ -126,9 +126,9 @@ daml test
 
 Toggle **Sealed auction · Veild** on the live site for a multi-financier blind
 auction. A supplier auctions one invoice to three financiers who each submit a
-**blind bid**; the killer property - enforced by Canton sub-transaction privacy -
-is that **no financier can see another's bid**, only the supplier (auctioneer) sees
-them all. The **View as…** control re-queries the ledger as each party: as a
+**blind bid**; the killer property - enforced by Canton's party-scoped disclosure
+(each bid is a separate contract shared only with the supplier) - is that **no
+financier can see another's bid**, only the supplier (auctioneer) sees them all. The **View as…** control re-queries the ledger as each party: as a
 financier only your own envelope opens (rivals stay wax-sealed); as the supplier
 every envelope opens; the buyer/auditor see no pricing. On close the supplier
 accepts a bid and it settles atomically. What `testSealedBidAuction`

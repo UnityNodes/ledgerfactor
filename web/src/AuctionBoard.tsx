@@ -677,8 +677,8 @@ export function AuctionBoard() {
             ))}
           </div>
           <p className="vld-collect-note">
-            Each bid is written to that financier’s own ledger node. No rival can read it -
-            sub-transaction privacy, not a UI trick. Once all {bidders.length} are in, pick up each party’s key.
+            Each bid is a separate contract disclosed only to that financier and the supplier. No rival can read it -
+            party-scoped ledger disclosure, not a UI trick. Once all {bidders.length} are in, pick up each party’s key.
           </p>
         </div>
       )}
@@ -690,7 +690,7 @@ export function AuctionBoard() {
             <div className="vld-viewas-head">
               <span className="vld-viewas-kicker">◈ VIEW LEDGER AS</span>
               <span className="vld-viewas-hint">
-                {requerying ? 're-querying node…' : 'each pick is a live, party-scoped query'}
+                {requerying ? 're-querying ledger…' : 'each pick is a live, party-scoped query'}
               </span>
             </div>
 
@@ -822,7 +822,7 @@ export function AuctionBoard() {
                   <div className="vld-blackout-title">PRICING WITHHELD BY THE LEDGER</div>
                   <div className="vld-blackout-sub">
                     {bidders.length} sealed bids exist on this auction. As {viewerMeta?.label}, your
-                    node holds no key - not one rate reaches you.
+                    party view holds no key - not one rate reaches you.
                     {phase === 'closed' && ' The receivable settled; at what rate stays sealed.'}
                   </div>
                 </div>

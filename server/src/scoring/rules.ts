@@ -26,6 +26,7 @@ const round = (x: number, dp: number): number => {
   return Math.round(x * f) / f;
 };
 const pct = (x: number): string => `${round(x * 100, 1)}%`;
+const pct2 = (x: number): string => `${round(x * 100, 2)}%`;
 
 const reliabilityScore = (buyer: BuyerCreditProfile): number => {
   const latePenalty = clamp01(buyer.avgDaysLate / 60);
@@ -69,7 +70,7 @@ const buildRationale = (
     `This buyer would be ${pct(share)} of financed exposure vs a ${pct(cfg.concentrationCap)} cap → concentration ${subScores.concentration}.`,
     `Historical dispute/dilution ${pct(buyer.disputeRate)} → dilution ${subScores.dilution}.`,
     `Invoice ${invoice.amount.toLocaleString('en-US')} against a ${cfg.sizeReference.toLocaleString('en-US')} reference → size ${subScores.size}.`,
-    `Composite ${creditScore}/100 (band ${riskBand}) → ${decision.toUpperCase()}; recommended discount ${pct(recommendedDiscountRate)} for ${invoice.tenorDays}-day tenor (annualized ${pct(effectiveAnnualized)}).`,
+    `Composite ${creditScore}/100 (band ${riskBand}) → ${decision.toUpperCase()}; recommended discount ${pct2(recommendedDiscountRate)} for ${invoice.tenorDays}-day tenor (annualized ${pct(effectiveAnnualized)}).`,
   ];
 };
 
